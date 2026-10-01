@@ -1,0 +1,10 @@
+{
+  "name": "QUÉX — Marketplace de Pescados",
+  "short_name": "QUÉX",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f2f2f2",
+  "theme_color": "#0D1273",
+  "lang": "pt-BR",
+  "icons": []
+}

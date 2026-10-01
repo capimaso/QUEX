@@ -1,0 +1,34 @@
+import React from 'react'
+import { Link } from 'react-router-dom'
+import { MapPin, Fish, Bone, Waves } from 'lucide-react'
+import { Badge } from '@/components/ui'
+import { fallbackImage } from '@/api/data'
+
+const unitLabel = (u) => u === 'unit' ? 'unid.' : u === 'dozen' ? 'dúzia' : 'kg'
+
+export default function ProductCard({ product }) {
+  return (
+    <Link to={`/product/${product.id}`} className="group bg-white rounded-2xl overflow-hidden border border-gray-100 hover:border-[#5A5FBF]/40 hover:shadow-xl transition-all duration-300">
+      <div className="aspect-[4/3] overflow-hidden relative bg-gray-100">
+        <img src={product.image_url || fallbackImage} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" onError={(e) => { e.currentTarget.src = fallbackImage }} />
+        {product.quantity <= 0 && <div className="absolute inset-0 bg-black/50 flex items-center justify-center"><span className="text-white font-semibold text-sm">Sem Estoque</span></div>}
+        <div className="absolute top-3 left-3 flex flex-wrap gap-2">
+          {product.species && <Badge className="bg-white/90 text-[#0D1273]"><Fish className="w-3 h-3 mr-1" />{product.species}</Badge>}
+          <Badge className="bg-white/90 text-[#0D1273]">{product.category === 'iguaria' ? 'Iguaria' : 'Peixe'}</Badge>
+        </div>
+      </div>
+      <div className="p-4 space-y-2">
+        <h3 className="font-semibold text-[#0D1273] group-hover:text-[#5A5FBF] transition-colors line-clamp-1">{product.name}</h3>
+        <p className="text-xs text-gray-500 line-clamp-2">{product.description || 'Produto fresco anunciado por vendedor local.'}</p>
+        <div className="flex flex-wrap gap-2 pt-1">
+          <Badge className="bg-[#0D1273]/5 text-[#0D1273]"><Bone className="w-3 h-3 mr-1" />{product.has_bones ? 'Com espinha' : 'Sem espinha'}</Badge>
+          <Badge className="bg-[#0D1273]/5 text-[#0D1273]"><Waves className="w-3 h-3 mr-1" />{product.water_type === 'salgada' ? 'Água salgada' : 'Água doce'}</Badge>
+        </div>
+        <div className="flex items-end justify-between pt-1 gap-3">
+          <div><span className="text-xl font-bold text-[#0D1273]">R$ {product.price.toFixed(2)}</span><span className="text-xs text-gray-400 ml-1">/{unitLabel(product.unit)}</span></div>
+          <span className="text-xs text-gray-400 flex items-center gap-1 truncate max-w-[46%]"><MapPin className="w-3 h-3 flex-shrink-0" />{product.seller_name}</span>
+        </div>
+      </div>
+    </Link>
+  )
+}
