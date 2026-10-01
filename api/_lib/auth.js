@@ -1,77 +1,45 @@
-import crypto from 'node:crypto'
-import { selectOne } from './db.js'
+import { selectOne, updateOne } from './db.js'
+import { getAuthUser } from './supabaseAuth.js'
 
-const COOKIE_NAME = 'quex_session'
-const MAX_AGE = 60 * 60 * 24 * 7
+// A identidade (senha, Google, confirmação de e-mail) vive no Supabase Auth.
+// A tabela `usuario` guarda os dados do QUÉX e aponta pro Supabase via auth_user_id.
 
-function b64url(input) {
-  return Buffer.from(input).toString('base64url')
+export function getBearerToken(req) {
+  const header = req.headers?.authorization || req.headers?.Authorization || ''
+  const match = /^Bearer\s+(.+)$/i.exec(header)
+  return match ? match[1].trim() : null
 }
 
-function getJwtSecret() {
-  const secret = process.env.JWT_SECRET || ''
-  if (!secret || secret.length < 32) throw new Error('JWT_SECRET deve ter pelo menos 32 caracteres.')
-  return secret
-}
+// Descobre quem está chamando a API.
+// Retorna { authUser, usuario } — `usuario` é null se ainda falta completar o cadastro (ex.: 1º login com Google).
+// Retorna null se o token for inválido.
+export async function resolveAccount(req) {
+  const token = getBearerToken(req)
+  const authUser = await getAuthUser(token)
+  if (!authUser?.id) return null
+  const confirmed = Boolean(authUser.email_confirmed_at)
 
-export function signToken(payload) {
-  const header = b64url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }))
-  const body = b64url(JSON.stringify({ ...payload, iat: Math.floor(Date.now() / 1000), exp: Math.floor(Date.now() / 1000) + MAX_AGE }))
-  const unsigned = `${header}.${body}`
-  const signature = crypto.createHmac('sha256', getJwtSecret()).update(unsigned).digest('base64url')
-  return `${unsigned}.${signature}`
-}
+  let usuario = await selectOne('usuario', `auth_user_id=eq.${encodeURIComponent(authUser.id)}`)
 
-export function verifyToken(token) {
-  if (!token) return null
-  const parts = token.split('.')
-  if (parts.length !== 3) return null
-  const [header, body, signature] = parts
-  const expected = crypto.createHmac('sha256', getJwtSecret()).update(`${header}.${body}`).digest('base64url')
-  const a = Buffer.from(signature)
-  const b = Buffer.from(expected)
-  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null
-  try {
-    const payload = JSON.parse(Buffer.from(body, 'base64url').toString('utf8'))
-    if (!payload.exp || payload.exp < Math.floor(Date.now() / 1000)) return null
-    return payload
-  } catch {
-    return null
+  // Conta antiga (criada antes do Supabase Auth) com o mesmo e-mail JÁ confirmado: vincula.
+  if (!usuario && confirmed && authUser.email) {
+    const legado = await selectOne('usuario', `email=eq.${encodeURIComponent(String(authUser.email).toLowerCase())}&auth_user_id=is.null`)
+    if (legado) {
+      usuario = await updateOne('usuario', `id=eq.${encodeURIComponent(legado.id)}`, { auth_user_id: authUser.id, is_active: true })
+    }
   }
-}
 
-export function setSessionCookie(res, token) {
-  const secure = process.env.NODE_ENV === 'production' ? '; Secure' : ''
-  res.setHeader('Set-Cookie', `${COOKIE_NAME}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${MAX_AGE}${secure}`)
-}
-
-export function clearSessionCookie(res) {
-  const secure = process.env.NODE_ENV === 'production' ? '; Secure' : ''
-  res.setHeader('Set-Cookie', `${COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secure}`)
-}
-
-function getCookies(req) {
-  const header = req.headers.cookie || ''
-  return header.split(';').reduce((acc, part) => {
-    const index = part.indexOf('=')
-    if (index === -1) return acc
-    const key = part.slice(0, index).trim()
-    const value = decodeURIComponent(part.slice(index + 1).trim())
-    acc[key] = value
-    return acc
-  }, {})
-}
-
-export function getSessionPayload(req) {
-  return verifyToken(getCookies(req)[COOKIE_NAME])
+  // Segurança extra caso o trigger do banco não tenha rodado.
+  if (usuario && !usuario.is_active && confirmed) {
+    usuario = (await updateOne('usuario', `id=eq.${encodeURIComponent(usuario.id)}`, { is_active: true })) || usuario
+  }
+  return { authUser, usuario: usuario || null }
 }
 
 export async function requireUser(req) {
-  const payload = getSessionPayload(req)
-  if (!payload?.id) return null
-  const user = await selectOne('usuario', `id=eq.${encodeURIComponent(payload.id)}`)
-  if (!user) return null
-  return user
+  const account = await resolveAccount(req)
+  if (!account?.usuario || !account.usuario.is_active) return null
+  return account.usuario
 }
 
 export async function requireRole(req, role) {
@@ -92,4 +60,22 @@ export function publicUser(user, extras = {}) {
     tipo: user.tipo,
     ...extras,
   }
+}
+
+// publicUser + dados de comprador/vendedor
+export async function buildPublicUser(user, extras = {}) {
+  let detail
+  if (user.tipo === 'vendedor') {
+    const seller = await selectOne('vendedor', `id=eq.${encodeURIComponent(user.id)}`)
+    detail = {
+      cpf_cnpj: seller?.cpf_cnpj || '',
+      business_name: seller?.comercial || '',
+      localizacao: seller?.localizacao || '',
+      entrega_propria: Boolean(seller?.entrega_propria),
+    }
+  } else {
+    const buyer = await selectOne('comprador', `id=eq.${encodeURIComponent(user.id)}`)
+    detail = { cpf: buyer?.cpf || '' }
+  }
+  return publicUser(user, { ...detail, ...extras })
 }

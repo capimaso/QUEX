@@ -9,7 +9,7 @@ A interface mantém a identidade visual do projeto original, com azul profundo, 
 ### Comprador
 
 - Cadastro com nome, e-mail, senha, CPF e telefone.
-- Login e sessão persistente por cookie HTTP-only.
+- Login com e-mail/senha ou Google, confirmação de e-mail e sessão persistente (Supabase Auth).
 - Pesquisa de peixes e iguarias por nome, espécie, descrição ou vendedor.
 - Filtros por espécie, com/sem espinha e água doce/água salgada.
 - Visualização detalhada de cada produto.
@@ -178,7 +178,8 @@ O back-end da Vercel precisa destas variáveis:
 ```env
 SUPABASE_URL=https://seu-projeto.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=sua_service_role_key
-JWT_SECRET=uma_chave_aleatoria_com_pelo_menos_32_caracteres
+VITE_SUPABASE_URL=https://seu-projeto.supabase.co
+VITE_SUPABASE_ANON_KEY=sua_anon_ou_publishable_key
 VITE_APP_NAME=QUÉX
 ```
 
@@ -196,11 +197,23 @@ Depois de alterar variáveis, faça um novo deploy para que o valor seja aplicad
 
 ## Autenticação
 
-Esta versão **não usa `auth.users` nem Supabase Auth** para representar compradores e vendedores. A autenticação foi adaptada para o schema fornecido, no qual `usuario.id` é `SERIAL` e `comprador`/`vendedor` usam esse mesmo ID.
+A identidade (senha, Google, confirmação de e-mail, recuperação de senha) fica no **Supabase Auth**.
+A tabela `usuario` guarda os dados do QUÉX e aponta pro Supabase por `usuario.auth_user_id`.
 
-As sessões são representadas por um JWT assinado no servidor e armazenado em cookie `HttpOnly`.
+```
+Supabase Auth (auth.users)
+        │  auth_user_id
+        ▼
+     usuario ──┬── comprador
+               └── vendedor
+```
 
-As senhas novas são armazenadas na coluna `usuario.senha` em formato derivado por `scrypt`. Para compatibilidade, contas antigas que tenham senha em texto simples ainda podem fazer login; depois do primeiro login a senha é migrada para o formato protegido.
+- O navegador usa só a chave pública (anon) pra login/sessão e manda o token em `Authorization: Bearer`.
+- A API (`api/`) valida o token no Supabase e usa a service role pra ler/escrever no banco.
+- Cadastro novo nasce com `is_active = false` e só ativa depois de confirmar o e-mail.
+- Primeiro login com Google leva pra `/complete-profile` (CPF, telefone, localização, tipo de conta).
+- CPF/CNPJ são validados matematicamente no front, na API e no banco (`quex_cpf_valido` / `quex_cnpj_valido`).
+- Contas antigas (senha em `usuario.senha`) migram sozinhas no primeiro login (`api/auth/legacy-login.js`).
 
 ## Fluxo do cadastro
 
@@ -268,7 +281,7 @@ Para cobrança real, seria necessário integrar um provedor de pagamentos separa
 1. Faça push deste projeto para o GitHub.
 2. Importe o repositório na Vercel.
 3. Deixe o framework como Vite ou configure o build como `npm run build`.
-4. Defina as variáveis `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` e `JWT_SECRET` em **Environment Variables**.
+4. Defina `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` em **Environment Variables**.
 5. Faça o deploy.
 
 O `vercel.json` já mantém o fallback para o React Router e define o diretório `dist` como saída do build.

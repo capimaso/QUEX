@@ -1,21 +1,26 @@
-import { selectOne } from '../_lib/db.js'
-import { unauthorized, ok, serverError } from '../_lib/http.js'
-import { publicUser, requireUser } from '../_lib/auth.js'
+import { ok, serverError, unauthorized } from '../_lib/http.js'
+import { buildPublicUser, resolveAccount } from '../_lib/auth.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Método não permitido.' })
   try {
-    const user = await requireUser(req)
-    if (!user) return unauthorized(res)
-    let detail
-    if (user.tipo === 'vendedor') {
-      const seller = await selectOne('vendedor', `id=eq.${encodeURIComponent(user.id)}`)
-      detail = { cpf_cnpj: seller?.cpf_cnpj || '', business_name: seller?.comercial || '', localizacao: seller?.localizacao || '', entrega_propria: Boolean(seller?.entrega_propria) }
-    } else {
-      const buyer = await selectOne('comprador', `id=eq.${encodeURIComponent(user.id)}`)
-      detail = { cpf: buyer?.cpf || '' }
+    const account = await resolveAccount(req)
+    if (!account) return unauthorized(res)
+    const { authUser, usuario } = account
+    const providers = authUser.app_metadata?.providers || []
+    const extras = { has_password: providers.includes('email') }
+
+    // Logou (ex.: Google) mas ainda não tem cadastro no QUÉX
+    if (!usuario) {
+      const meta = authUser.user_metadata || {}
+      return ok(res, {
+        user: null,
+        needs_profile: true,
+        auth: { email: authUser.email, name: meta.full_name || meta.name || '' },
+      })
     }
-    return ok(res, { user: publicUser(user, detail || {}) })
+    if (!usuario.is_active) return unauthorized(res, 'Conta inativa. Confirme seu e-mail.')
+    return ok(res, { user: await buildPublicUser(usuario, extras), needs_profile: false })
   } catch (error) {
     return serverError(res, error)
   }

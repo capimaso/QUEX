@@ -1,4 +1,5 @@
 import { apiRequest } from './client'
+import { supabase } from '@/lib/supabase'
 
 export const fallbackImage = 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=900&h=680&fit=crop'
 
@@ -85,5 +86,13 @@ export async function updateProfile(payload) {
 }
 
 export async function changePassword(currentPassword, newPassword) {
-  return apiRequest('/api/auth/change-password', { method: 'POST', body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }) })
+  const { data } = await supabase.auth.getUser()
+  const email = data.user?.email
+  if (!email) throw new Error('Sessão expirada. Entre de novo.')
+  // confere a senha atual antes de trocar
+  const check = await supabase.auth.signInWithPassword({ email, password: currentPassword })
+  if (check.error) throw new Error('A senha atual está incorreta.')
+  const { error } = await supabase.auth.updateUser({ password: newPassword })
+  if (error) throw new Error(error.message || 'Não foi possível alterar a senha.')
+  return { ok: true }
 }
