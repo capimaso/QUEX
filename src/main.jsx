@@ -5,11 +5,4 @@ import { Toaster } from 'react-hot-toast'
 import App from './App'
 import './index.css'
 
-ReactDOM.createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
-    <BrowserRouter>
-      <App />
-      <Toaster position="top-right" toastOptions={{ duration: 3200 }} />
-    </BrowserRouter>
-  </React.StrictMode>,
-)
+ReactDOM.createRoot(document.getElementById('root')).render(<React.StrictMode><BrowserRouter><App /><Toaster position="top-right" toastOptions={{ duration: 3200 }} /></BrowserRouter></React.StrictMode>)

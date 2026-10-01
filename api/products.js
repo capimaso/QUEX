@@ -1,0 +1,167 @@
+import { supabaseRequest, selectOne, insertOne, updateOne, deleteWhere } from './_lib/db.js'
+import { requireUser } from './_lib/auth.js'
+import { badRequest, forbidden, notFound, ok, readBody, serverError } from './_lib/http.js'
+
+const fallbackImage = 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=900&h=680&fit=crop'
+const cleanText = value => String(value ?? '').trim()
+
+function normalizeUnit(value) {
+  const v = cleanText(value).toLowerCase()
+  if (v === 'unit' || v === 'unidade') return 'unidade'
+  if (v === 'dozen' || v === 'duzia' || v === 'dúzia') return 'duzia'
+  return 'kg'
+}
+
+function mapProduct(row, seller = null, sellerUser = null) {
+  return {
+    id: Number(row.id),
+    seller_id: Number(row.vendedor_id),
+    seller_name: seller?.comercial || sellerUser?.nome || 'Pescador local',
+    seller_email: sellerUser?.email || '',
+    name: row.nome || '',
+    species: row.especie || '',
+    description: row.descricao || '',
+    price: Number(row.preco || 0),
+    quantity: Number(row.quantidade || 0),
+    unit: normalizeUnit(row.unidade),
+    active: Boolean(row.ativo),
+    image_url: row.fotos_url || fallbackImage,
+    has_bones: Boolean(row.tem_espinha),
+    water_type: row.tipo_agua || 'doce',
+  }
+}
+
+async function decorateProducts(rows) {
+  if (!rows?.length) return []
+  const ids = [...new Set(rows.map(row => Number(row.vendedor_id)).filter(Boolean))]
+  const idFilter = `id=in.(${ids.join(',')})`
+  const sellers = ids.length ? await supabaseRequest(`/vendedor?select=id,comercial,entrega_propria,localizacao&${idFilter}`) : []
+  const users = ids.length ? await supabaseRequest(`/usuario?select=id,nome,email&${idFilter}`) : []
+  const sellerMap = new Map((sellers || []).map(s => [Number(s.id), s]))
+  const userMap = new Map((users || []).map(u => [Number(u.id), u]))
+  return rows.map(row => mapProduct(row, sellerMap.get(Number(row.vendedor_id)), userMap.get(Number(row.vendedor_id))))
+}
+
+async function sellerExists(userId) {
+  return Boolean(await selectOne('vendedor', `id=eq.${encodeURIComponent(userId)}`))
+}
+
+async function getOwnedProduct(userId, id) {
+  return selectOne('produto', `id=eq.${encodeURIComponent(id)}&vendedor_id=eq.${encodeURIComponent(userId)}`)
+}
+
+export default async function handler(req, res) {
+  try {
+    if (req.method === 'GET') {
+      const id = req.query?.id
+      let activeOnly = req.query?.active !== 'false'
+      const sellerId = req.query?.seller_id
+      const search = cleanText(req.query?.search).toLowerCase()
+      let viewer = null
+      if (!activeOnly) {
+        try { viewer = await requireUser(req) } catch { viewer = null }
+        if (viewer?.tipo !== 'vendedor') activeOnly = true
+        if (sellerId && Number(sellerId) !== Number(viewer?.id)) return forbidden(res, 'Não é permitido consultar o catálogo privado de outro vendedor.')
+      }
+      const conditions = []
+      if (id) conditions.push(`id=eq.${encodeURIComponent(id)}`)
+      if (activeOnly) conditions.push('ativo=eq.true')
+      if (sellerId) conditions.push(`vendedor_id=eq.${encodeURIComponent(sellerId)}`)
+      const query = conditions.length ? `&${conditions.join('&')}` : ''
+      const rows = await supabaseRequest(`/produto?select=*&order=id.desc${query}`)
+      let products = await decorateProducts(rows || [])
+      if (search) {
+        products = products.filter(p => [p.name, p.species, p.description, p.seller_name].some(value => String(value || '').toLowerCase().includes(search)))
+      }
+      if (id) {
+        const product = products[0]
+        if (!product) return notFound(res, 'Produto não encontrado.')
+        return ok(res, { product })
+      }
+      return ok(res, { products })
+    }
+
+    const user = await requireUser(req)
+    if (!user) return res.status(401).json({ error: 'Faça login para continuar.' })
+    if (req.method === 'POST') {
+      if (user.tipo !== 'vendedor') return forbidden(res, 'Somente vendedores podem cadastrar produtos.')
+      if (!await sellerExists(user.id)) return forbidden(res, 'Perfil de vendedor não encontrado.')
+      const body = readBody(req)
+      const name = cleanText(body.name)
+      const species = cleanText(body.species)
+      const price = Number(body.price)
+      const quantity = Number(body.quantity)
+      const waterType = cleanText(body.water_type)
+      if (!name) return badRequest(res, 'Informe o nome do produto.')
+      if (!species) return badRequest(res, 'Informe a espécie ou o tipo da iguaria.')
+      if (!Number.isFinite(price) || price <= 0) return badRequest(res, 'O preço deve ser maior que zero.')
+      if (!Number.isInteger(quantity) || quantity < 0) return badRequest(res, 'A quantidade deve ser um número inteiro não negativo.')
+      if (!['doce', 'salgada'].includes(waterType)) return badRequest(res, 'Selecione água doce ou água salgada.')
+      if (String(body.name).length > 150) return badRequest(res, 'O nome do produto é muito longo.')
+      const row = await insertOne('produto', {
+        vendedor_id: Number(user.id),
+        nome: name,
+        preco: price,
+        descricao: cleanText(body.description) || null,
+        quantidade: quantity,
+        fotos_url: cleanText(body.image_url) || null,
+        especie: species,
+        ativo: body.active !== false,
+        tem_espinha: Boolean(body.has_bones),
+        tipo_agua: waterType,
+        unidade: normalizeUnit(body.unit),
+      })
+      const [product] = await decorateProducts([row])
+      return res.status(201).json({ product })
+    }
+
+    if (req.method === 'PATCH') {
+      if (user.tipo !== 'vendedor') return forbidden(res, 'Somente vendedores podem editar produtos.')
+      const id = req.query?.id
+      if (!id) return badRequest(res, 'ID do produto é obrigatório.')
+      const owned = await getOwnedProduct(user.id, id)
+      if (!owned) return notFound(res, 'Produto não encontrado ou não pertence à sua loja.')
+      const body = readBody(req)
+      const payload = {}
+      if (body.name !== undefined) payload.nome = cleanText(body.name)
+      if (body.species !== undefined) payload.especie = cleanText(body.species)
+      if (body.description !== undefined) payload.descricao = cleanText(body.description) || null
+      if (body.price !== undefined) payload.preco = Number(body.price)
+      if (body.quantity !== undefined) payload.quantidade = Number(body.quantity)
+      if (body.image_url !== undefined) payload.fotos_url = cleanText(body.image_url) || null
+      if (body.active !== undefined) payload.ativo = Boolean(body.active)
+      if (body.has_bones !== undefined) payload.tem_espinha = Boolean(body.has_bones)
+      if (body.water_type !== undefined) payload.tipo_agua = cleanText(body.water_type)
+      if (body.unit !== undefined) payload.unidade = normalizeUnit(body.unit)
+      if (payload.preco !== undefined && (!Number.isFinite(payload.preco) || payload.preco <= 0)) return badRequest(res, 'O preço deve ser maior que zero.')
+      if (payload.quantidade !== undefined && (!Number.isInteger(payload.quantidade) || payload.quantidade < 0)) return badRequest(res, 'A quantidade deve ser um inteiro não negativo.')
+      if (payload.tipo_agua !== undefined && !['doce', 'salgada'].includes(payload.tipo_agua)) return badRequest(res, 'Tipo de água inválido.')
+      if (payload.nome === '') return badRequest(res, 'Informe o nome do produto.')
+      if (payload.especie === '') return badRequest(res, 'Informe a espécie ou o tipo da iguaria.')
+      const row = await updateOne('produto', `id=eq.${encodeURIComponent(id)}&vendedor_id=eq.${encodeURIComponent(user.id)}`, payload)
+      const [product] = await decorateProducts([row])
+      return ok(res, { product })
+    }
+
+    if (req.method === 'DELETE') {
+      if (user.tipo !== 'vendedor') return forbidden(res, 'Somente vendedores podem excluir produtos.')
+      const id = req.query?.id
+      if (!id) return badRequest(res, 'ID do produto é obrigatório.')
+      const owned = await getOwnedProduct(user.id, id)
+      if (!owned) return notFound(res, 'Produto não encontrado ou não pertence à sua loja.')
+      try {
+        await deleteWhere('produto', `id=eq.${encodeURIComponent(id)}&vendedor_id=eq.${encodeURIComponent(user.id)}`)
+      } catch (error) {
+        if (String(error.message || '').toLowerCase().includes('pedido_item') || error.status === 409) {
+          return res.status(409).json({ error: 'Este produto já participa de um pedido e não pode ser excluído. Desative o anúncio.' })
+        }
+        throw error
+      }
+      return ok(res, { ok: true })
+    }
+
+    return res.status(405).json({ error: 'Método não permitido.' })
+  } catch (error) {
+    return serverError(res, error)
+  }
+}
