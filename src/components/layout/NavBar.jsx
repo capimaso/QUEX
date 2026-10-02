@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { ShoppingCart, Menu, X, Fish, User, LogOut, Package, Store } from 'lucide-react'
 import { Button, Badge } from '@/components/ui'
+import Avatar from '@/components/Avatar'
 import { useAuth } from '@/lib/AuthContext'
 
 export default function NavBar({ user, cartCount = 0 }) {
@@ -23,6 +24,7 @@ export default function NavBar({ user, cartCount = 0 }) {
 
           <div className="hidden md:flex items-center gap-6">
             <Link to="/marketplace" className={linkClass('/marketplace')}>Comprar Pescados</Link>
+            <Link to="/sellers" className={linkClass('/sellers')}>Vendedores</Link>
             {isSeller ? <Link to="/seller/dashboard" className={linkClass('/seller/dashboard')}>Minha Loja</Link> : <Link to="/orders" className={linkClass('/orders')}>Meus Pedidos</Link>}
             <Link to="/profile" className={linkClass('/profile')}>Perfil</Link>
           </div>
@@ -35,7 +37,7 @@ export default function NavBar({ user, cartCount = 0 }) {
               </Link>
             )}
             <div className="hidden sm:flex items-center gap-2 rounded-xl bg-gray-50 px-3 py-2">
-              <User className="w-4 h-4 text-[#0D1273]" />
+              <Avatar src={user?.foto_url} name={user?.full_name} size={28} />
               <div className="max-w-32">
                 <p className="text-xs font-medium text-[#0D1273] truncate">{user?.full_name || 'Usuário'}</p>
                 <p className="text-[10px] text-gray-400">{isSeller ? 'Vendedor' : 'Comprador'}</p>
@@ -51,6 +53,7 @@ export default function NavBar({ user, cartCount = 0 }) {
         {mobileOpen && (
           <div className="md:hidden pb-4 space-y-1">
             <Link to="/marketplace" onClick={close} className="block px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-[#5A5FBF]/10">Comprar Pescados</Link>
+            <Link to="/sellers" onClick={close} className="block px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-[#5A5FBF]/10"><Store className="inline w-4 h-4 mr-2" />Vendedores</Link>
             {isSeller ? (
               <Link to="/seller/dashboard" onClick={close} className="block px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-[#5A5FBF]/10"><Store className="inline w-4 h-4 mr-2" />Minha Loja</Link>
             ) : (

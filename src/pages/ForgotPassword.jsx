@@ -19,7 +19,7 @@ export default function ForgotPassword() {
     const clean = email.trim().toLowerCase()
     try {
       // Conta antiga ainda não migrada pro Supabase Auth? Migra antes, senão o e-mail não sai.
-      await apiRequest('/api/auth/prepare-reset', { method: 'POST', body: JSON.stringify({ email: clean }) }).catch(() => {})
+      await apiRequest('/api/auth/legacy', { method: 'POST', body: JSON.stringify({ action: 'reset', email: clean }) }).catch(() => {})
       const { error: err } = await supabase.auth.resetPasswordForEmail(clean, { redirectTo: `${window.location.origin}/reset-password` })
       if (err) throw err
       setSent(true)

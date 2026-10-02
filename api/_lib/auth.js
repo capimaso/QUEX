@@ -1,5 +1,6 @@
 import { selectOne, updateOne } from './db.js'
 import { getAuthUser } from './supabaseAuth.js'
+import { avatarUrl } from './storage.js'
 
 // A identidade (senha, Google, confirmação de e-mail) vive no Supabase Auth.
 // A tabela `usuario` guarda os dados do QUÉX e aponta pro Supabase via auth_user_id.
@@ -56,6 +57,10 @@ export function publicUser(user, extras = {}) {
     phone: user.telefone || '',
     address: user.endereco || '',
     birth_date: user.data_nasc || null,
+    bio: user.bio || '',
+    localizacao: user.localizacao || '',
+    foto_perfil: user.foto_perfil || '',
+    foto_url: avatarUrl(user.foto_perfil),
     role: user.tipo === 'vendedor' ? 'seller' : 'buyer',
     tipo: user.tipo,
     ...extras,
@@ -70,7 +75,7 @@ export async function buildPublicUser(user, extras = {}) {
     detail = {
       cpf_cnpj: seller?.cpf_cnpj || '',
       business_name: seller?.comercial || '',
-      localizacao: seller?.localizacao || '',
+      localizacao: user.localizacao || seller?.localizacao || '',
       entrega_propria: Boolean(seller?.entrega_propria),
     }
   } else {

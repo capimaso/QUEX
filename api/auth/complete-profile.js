@@ -9,7 +9,8 @@ export default async function handler(req, res) {
     const account = await resolveAccount(req)
     if (!account) return unauthorized(res)
     const { authUser, usuario } = account
-    if (usuario) return ok(res, { user: await buildPublicUser(usuario) }) // já completo
+    const extras = { has_password: (authUser.app_metadata?.providers || []).includes('email') }
+    if (usuario) return ok(res, { user: await buildPublicUser(usuario, extras) }) // já completo
     if (!authUser.email_confirmed_at) return forbidden(res, 'Confirme seu e-mail antes de completar o cadastro.')
 
     const body = readBody(req)
@@ -26,7 +27,7 @@ export default async function handler(req, res) {
     const name = String(meta.full_name || meta.name || email.split('@')[0] || 'Usuário').trim().slice(0, 100)
 
     const novo = await createAccount({ authUserId: authUser.id, name, email, active: true, profile })
-    return created(res, { user: await buildPublicUser(novo) })
+    return created(res, { user: await buildPublicUser(novo, extras) })
   } catch (error) {
     return serverError(res, error)
   }

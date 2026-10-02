@@ -71,7 +71,7 @@ export function AuthProvider({ children }) {
     // Conta antiga (criada antes do Supabase Auth): confere a senha antiga e migra na hora.
     if (error && (error.code === 'invalid_credentials' || /invalid login/i.test(error.message || ''))) {
       try {
-        await apiRequest('/api/auth/legacy-login', { method: 'POST', body: JSON.stringify({ email, password }) })
+        await apiRequest('/api/auth/legacy', { method: 'POST', body: JSON.stringify({ action: 'login', email, password }) })
         ;({ error } = await supabase.auth.signInWithPassword({ email, password }))
       } catch (legacyError) {
         if (legacyError.status === 409) throw legacyError // pede pra redefinir a senha

@@ -1,10 +1,12 @@
 import { apiRequest } from './client'
 import { supabase } from '@/lib/supabase'
+import { compressAvatar } from '@/lib/image'
 
 export const fallbackImage = 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=900&h=680&fit=crop'
 
-export async function listProducts({ activeOnly = true, search = '' } = {}) {
+export async function listProducts({ activeOnly = true, search = '', sellerId } = {}) {
   const params = new URLSearchParams()
+  if (sellerId) params.set('seller_id', String(sellerId))
   if (!activeOnly) params.set('active', 'false')
   if (search.trim()) params.set('search', search.trim())
   const query = params.toString()
@@ -89,10 +91,43 @@ export async function changePassword(currentPassword, newPassword) {
   const { data } = await supabase.auth.getUser()
   const email = data.user?.email
   if (!email) throw new Error('Sessão expirada. Entre de novo.')
-  // confere a senha atual antes de trocar
-  const check = await supabase.auth.signInWithPassword({ email, password: currentPassword })
-  if (check.error) throw new Error('A senha atual está incorreta.')
+  // Quem entrou só com Google não tem senha ainda: nesse caso não há "senha atual" pra conferir.
+  if (currentPassword !== null) {
+    const check = await supabase.auth.signInWithPassword({ email, password: currentPassword })
+    if (check.error) throw new Error('A senha atual está incorreta.')
+  }
   const { error } = await supabase.auth.updateUser({ password: newPassword })
   if (error) throw new Error(error.message || 'Não foi possível alterar a senha.')
   return { ok: true }
+}
+
+// ---------- perfis públicos ----------
+export async function listSellers({ search = '', location = '', limit = 24, offset = 0 } = {}) {
+  const params = new URLSearchParams({ limit: String(limit), offset: String(offset) })
+  if (search.trim()) params.set('search', search.trim())
+  if (location.trim()) params.set('location', location.trim())
+  return (await apiRequest(`/api/people?${params}`)).people || []
+}
+
+export async function getPerson(id) {
+  return (await apiRequest(`/api/people?id=${encodeURIComponent(id)}`)).person
+}
+
+// ---------- foto de perfil (Supabase Storage) ----------
+// 1) reduz/corta no navegador  2) sobe pro bucket "avatars" na pasta do próprio usuário
+// 3) avisa a API, que valida o caminho, salva em usuario.foto_perfil e apaga a foto antiga.
+export async function uploadAvatar(file, authUserId) {
+  const blob = await compressAvatar(file)
+  const path = `${authUserId}/${Date.now()}.jpg`
+  const { error } = await supabase.storage.from('avatars').upload(path, blob, { contentType: 'image/jpeg', cacheControl: '31536000', upsert: false })
+  if (error) {
+    console.error('[QUÉX] upload da foto falhou:', error)
+    if (/bucket not found/i.test(error.message || '')) throw new Error('O armazenamento de fotos ainda não foi configurado (falta rodar o modulo3_perfis.sql no Supabase).')
+    throw new Error('Não foi possível enviar a foto. Tenta de novo.')
+  }
+  return (await apiRequest('/api/profile', { method: 'PATCH', body: JSON.stringify({ photo_path: path }) })).user
+}
+
+export async function removeAvatar() {
+  return (await apiRequest('/api/profile', { method: 'PATCH', body: JSON.stringify({ photo_path: null }) })).user
 }

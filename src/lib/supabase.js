@@ -24,7 +24,10 @@ function readUrlError() {
   try {
     const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''))
     const query = new URLSearchParams(window.location.search)
-    return hash.get('error_description') || query.get('error_description') || null
+    const raw = hash.get('error_description') || query.get('error_description')
+    if (!raw) return null
+    // o Supabase às vezes codifica duas vezes ("code%3A 4%2F0A...")
+    try { return decodeURIComponent(String(raw).replace(/\+/g, ' ')) } catch { return String(raw) }
   } catch { return null }
 }
 export const initialUrlError = readUrlError()
