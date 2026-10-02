@@ -1,4 +1,10 @@
-const SUPABASE_URL = (process.env.SUPABASE_URL || '').replace(/\/$/, '')
+// Usa só a origem (https://xxxx.supabase.co), mesmo que colem ".../rest/v1" na env.
+function normalizeUrl(raw) {
+  const value = String(raw || '').trim()
+  if (!value) return ''
+  try { return new URL(/^https?:\/\//i.test(value) ? value : `https://${value}`).origin } catch { return value.replace(/\/+$/, '') }
+}
+const SUPABASE_URL = normalizeUrl(process.env.SUPABASE_URL)
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
 
 export function requireDbConfig() {
