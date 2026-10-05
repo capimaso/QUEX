@@ -1,8 +1,70 @@
 import React, { useEffect, useState } from 'react'
-import { Package, MapPin, Clock, CheckCircle2, Truck, XCircle } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Package, MapPin, Clock, CheckCircle2, Truck, XCircle, Star } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { listBuyerOrders } from '@/api/data'
+import OrderReviewAction from '@/components/OrderReviewAction'
 import { Badge } from '@/components/ui'
 
 const icons = { pendente: Clock, pago: CheckCircle2, em_preparo: Package, despachado: Truck, entregue: CheckCircle2, cancelado: XCircle }
-export default function Orders() { const [orders, setOrders] = useState([]); const [loading, setLoading] = useState(true); useEffect(() => { listBuyerOrders().then(setOrders).catch(e => toast.error(e.message)).finally(() => setLoading(false)) }, []); if (loading) return <div className="flex justify-center py-32"><div className="w-8 h-8 border-4 border-[#5A5FBF]/20 border-t-[#0D1273] rounded-full animate-spin" /></div>; return <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8"><div className="mb-8"><h1 className="text-2xl md:text-3xl font-heading font-bold text-[#0D1273]">Meus Pedidos</h1><p className="text-gray-500 mt-1">Acompanhe seus pedidos feitos no QUÉX</p></div>{orders.length === 0 ? <div className="bg-white rounded-2xl border border-gray-100 p-16 text-center text-gray-400"><Package className="w-12 h-12 mx-auto mb-3 opacity-30" /><p>Nenhum pedido ainda.</p></div> : <div className="space-y-4">{orders.map(o => { const StatusIcon = icons[o.status] || Clock; return <div key={o.id} className="bg-white rounded-2xl border border-gray-100 p-5"><div className="flex items-start justify-between gap-4"><div><p className="font-semibold text-[#0D1273]">Pedido #{o.id}</p><p className="text-xs text-gray-400 mt-1">{new Date(o.created_at).toLocaleString('pt-BR')}</p></div><Badge className="bg-[#0D1273]/5 text-[#0D1273]"><StatusIcon className="w-3 h-3 mr-1" />{o.status_label}</Badge></div><div className="mt-4 space-y-2">{o.items.map(i => <div key={i.id} className="flex justify-between text-sm"><span className="text-gray-600">{i.quantity}× {i.product_name}</span><span className="font-medium">R$ {Number(i.subtotal).toFixed(2)}</span></div>)}</div><div className="border-t border-gray-100 mt-4 pt-4 flex items-center justify-between gap-4"><span className="text-xs text-gray-500"><MapPin className="inline w-3 h-3 mr-1" />{o.delivery_address || 'Endereço não informado'}</span><span className="font-bold text-[#0D1273]">R$ {Number(o.total).toFixed(2)}</span></div>{o.tracking_code && <p className="text-xs text-gray-400 mt-2">Rastreio: <strong>{o.tracking_code}</strong></p>}</div> })}</div>}</div> }
+
+export default function Orders() {
+  const [orders, setOrders] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    listBuyerOrders().then(setOrders).catch(e => toast.error(e.message)).finally(() => setLoading(false))
+  }, [])
+
+  const markReviewed = (id, rating) => setOrders(list => list.map(o => o.id === id ? { ...o, can_review: false, my_review: { rating } } : o))
+  const pending = orders.filter(o => o.can_review).length
+
+  if (loading) return <div className="flex justify-center py-32"><div className="w-8 h-8 border-4 border-[#5A5FBF]/20 border-t-[#0D1273] rounded-full animate-spin" /></div>
+
+  return (
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="mb-8">
+        <h1 className="text-2xl md:text-3xl font-heading font-bold text-[#0D1273]">Meus Pedidos</h1>
+        <p className="text-gray-500 mt-1">Acompanhe seus pedidos feitos no QUÉX</p>
+      </div>
+
+      {pending > 0 && (
+        <div role="status" className="mb-6 flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+          <Star className="w-5 h-5 text-amber-500 fill-amber-400 flex-shrink-0" />
+          {pending === 1 ? 'Você tem 1 pedido entregue esperando sua avaliação.' : `Você tem ${pending} pedidos entregues esperando sua avaliação.`}
+        </div>
+      )}
+
+      {orders.length === 0 ? (
+        <div className="bg-white rounded-2xl border border-gray-100 p-16 text-center text-gray-400"><Package className="w-12 h-12 mx-auto mb-3 opacity-30" /><p>Nenhum pedido ainda.</p></div>
+      ) : (
+        <div className="space-y-4">
+          {orders.map(o => {
+            const StatusIcon = icons[o.status] || Clock
+            return (
+              <div key={o.id} className="bg-white rounded-2xl border border-gray-100 p-5">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="font-semibold text-[#0D1273]">Pedido #{o.id}</p>
+                    <p className="text-xs text-gray-400 mt-1">{new Date(o.created_at).toLocaleString('pt-BR')}</p>
+                    {o.seller_id && <p className="text-xs text-gray-500 mt-1">Vendedor: <Link to={`/sellers/${o.seller_id}`} className="text-[#0D1273] font-medium hover:underline">{o.seller_name}</Link></p>}
+                  </div>
+                  <Badge className="bg-[#0D1273]/5 text-[#0D1273]"><StatusIcon className="w-3 h-3 mr-1" />{o.status_label}</Badge>
+                </div>
+                <div className="mt-4 space-y-2">
+                  {o.items.map(i => <div key={i.id} className="flex justify-between text-sm"><span className="text-gray-600">{i.quantity}× {i.product_name}</span><span className="font-medium">R$ {Number(i.subtotal).toFixed(2)}</span></div>)}
+                </div>
+                <div className="border-t border-gray-100 mt-4 pt-4 flex items-center justify-between gap-4">
+                  <span className="text-xs text-gray-500"><MapPin className="inline w-3 h-3 mr-1" />{o.delivery_address || 'Endereço não informado'}</span>
+                  <span className="font-bold text-[#0D1273]">R$ {Number(o.total).toFixed(2)}</span>
+                </div>
+                {o.tracking_code && <p className="text-xs text-gray-400 mt-2">Rastreio: <strong>{o.tracking_code}</strong></p>}
+                <div className="mt-3 flex justify-end"><OrderReviewAction order={o} onReviewed={markReviewed} /></div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}

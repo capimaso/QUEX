@@ -3,6 +3,7 @@ import { Link, Navigate, useLocation, useParams } from 'react-router-dom'
 import { ArrowLeft, MapPin, Pencil, Fish } from 'lucide-react'
 import Avatar from '@/components/Avatar'
 import StarRating from '@/components/StarRating'
+import RatingBars from '@/components/RatingBars'
 import ProductCard from '@/components/products/ProductCard'
 import { Badge, Button } from '@/components/ui'
 import { useAuth } from '@/lib/AuthContext'
@@ -58,6 +59,7 @@ export default function PublicProfile() {
             {person.responsible && <p className="text-sm text-gray-500">Responsável: {person.responsible}</p>}
             {person.localizacao && <p className="text-gray-500 flex items-center gap-1"><MapPin className="w-4 h-4" />{person.localizacao}</p>}
             <StarRating average={person.rating.average} count={person.rating.count} size={18} />
+            {person.rating.count > 0 && <div className="mt-3"><RatingBars distribution={person.rating.distribution} count={person.rating.count} /></div>}
           </div>
           {mine && <Link to="/profile"><Button variant="outline" size="sm"><Pencil className="w-4 h-4 mr-2" />Editar perfil</Button></Link>}
         </div>

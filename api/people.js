@@ -35,7 +35,12 @@ export default async function handler(req, res) {
       const id = Number(req.query.id)
       if (!Number.isInteger(id) || id <= 0) return badRequest(res, 'Perfil inválido.')
       const row = await selectOne('perfil_publico', `id=eq.${id}`)
-      return row ? ok(res, { person: mapPerson(row) }) : notFound(res, 'Perfil não encontrado.')
+      if (!row) return notFound(res, 'Perfil não encontrado.')
+      // distribuição por estrela (só números, nunca quem avaliou nem comentários)
+      const resumo = await selectOne('avaliacao_resumo', `usuario_id=eq.${id}`)
+      const person = mapPerson(row)
+      person.rating.distribution = { 1: Number(resumo?.nota_1 || 0), 2: Number(resumo?.nota_2 || 0), 3: Number(resumo?.nota_3 || 0), 4: Number(resumo?.nota_4 || 0), 5: Number(resumo?.nota_5 || 0) }
+      return ok(res, { person })
     }
 
     const search = fold(req.query?.search)

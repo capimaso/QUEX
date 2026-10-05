@@ -113,6 +113,12 @@ export async function listSellerOrders() {
   return (await apiRequest('/api/orders')).orders || []
 }
 
+// Avaliação anônima de um pedido ENTREGUE (comprador -> vendedor ou vendedor -> comprador).
+export async function submitReview({ orderId, rating, comment }) {
+  const data = await apiRequest('/api/orders?resource=review', { method: 'POST', body: JSON.stringify({ order_id: orderId, rating, comment }) })
+  return data.review
+}
+
 export async function updateOrderStatus(orderId, status) {
   return (await apiRequest(`/api/orders?id=${encodeURIComponent(orderId)}`, { method: 'PATCH', body: JSON.stringify({ status }) })).order
 }
