@@ -1,3 +1,4 @@
+import { firstPhotoUrl } from './_lib/photos.js'
 import { supabaseRequest, selectOne, insertOne, updateOne, deleteWhere } from './_lib/db.js'
 import { requireUser } from './_lib/auth.js'
 import { badRequest, forbidden, notFound, ok, readBody, serverError, unauthorized } from './_lib/http.js'
@@ -40,7 +41,7 @@ function mapItem(item, product, seller, sellerUser) {
     subtotal: Number((Number(product?.preco || 0) * Number(item.quantidade || 0)).toFixed(2)),
     product_name: product?.nome || 'Produto',
     product_price: Number(product?.preco || 0),
-    product_image: product?.fotos_url || fallbackImage,
+    product_image: firstPhotoUrl(product?.fotos_url, fallbackImage),
     seller_id: Number(product?.vendedor_id || 0),
     seller_name: seller?.comercial || sellerUser?.nome || 'Pescador local',
     product: product ? {

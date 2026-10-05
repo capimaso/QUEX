@@ -1,6 +1,6 @@
 import { apiRequest } from './client'
 import { supabase } from '@/lib/supabase'
-import { compressAvatar } from '@/lib/image'
+import { compressAvatar, compressPhoto } from '@/lib/image'
 
 export const fallbackImage = 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=900&h=680&fit=crop'
 
@@ -23,18 +23,57 @@ export async function getProduct(id, includeInactive = false) {
 export async function saveProduct(form, _user, id = 'new') {
   const payload = {
     name: form.name,
-    species: form.species,
+    species_id: Number(form.species_id),
     description: form.description,
     price: Number(form.price),
     quantity: Number(form.quantity),
     unit: form.unit,
     active: Boolean(form.active),
-    image_url: form.image_url,
+    photos: form.photos || [],
     has_bones: Boolean(form.has_bones),
     water_type: form.water_type,
   }
   if (id === 'new') return (await apiRequest('/api/products', { method: 'POST', body: JSON.stringify(payload) })).product
   return (await apiRequest(`/api/products?id=${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(payload) })).product
+}
+
+// ---------- espécies (lista controlada) ----------
+export async function listSpecies() {
+  return (await apiRequest('/api/products?resource=species')).species || []
+}
+
+// ---------- fotos de produto (Supabase Storage, bucket "produtos") ----------
+// items: [{ ref }]  (já salva)  ou  [{ file }]  (nova, ainda no navegador).
+// Sobe só as novas e devolve a lista final de refs NA ORDEM (a 1ª é a capa) + o que foi enviado agora
+// (pra limpar se o salvamento do produto falhar).
+export async function uploadProductPhotos(items, authUserId) {
+  if (items.some(item => item.file) && !authUserId) throw new Error('Sessão expirada. Entre de novo.')
+  const uploaded = []
+  const refs = []
+  try {
+    for (const item of items) {
+      if (item.ref) { refs.push(item.ref); continue }
+      const blob = await compressPhoto(item.file)
+      const path = `${authUserId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`
+      const { error } = await supabase.storage.from('produtos').upload(path, blob, { contentType: 'image/jpeg', cacheControl: '31536000', upsert: false })
+      if (error) {
+        console.error('[QUÉX] upload da foto do produto falhou:', error)
+        if (/bucket not found/i.test(error.message || '')) throw new Error('O armazenamento de fotos de produto não foi configurado (falta rodar o modulo4_produtos.sql no Supabase).')
+        throw new Error('Não foi possível enviar uma das fotos. Tenta de novo.')
+      }
+      uploaded.push(path)
+      refs.push(path)
+    }
+  } catch (error) {
+    await removeUploadedPhotos(uploaded)
+    throw error
+  }
+  return { refs, uploaded }
+}
+
+export async function removeUploadedPhotos(paths) {
+  if (!paths?.length) return
+  await supabase.storage.from('produtos').remove(paths).catch(() => {})
 }
 
 export async function removeProduct(id) {

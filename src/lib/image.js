@@ -38,3 +38,25 @@ export async function compressAvatar(file, { size = 512, quality = 0.85 } = {}) 
   if (!blob) throw new Error('Não deu pra processar essa imagem.')
   return blob
 }
+
+// Foto de produto: NÃO corta. Só reduz pra no máx. `max` px no lado maior e converte pra JPEG.
+export async function compressPhoto(file, { max = 1280, quality = 0.82 } = {}) {
+  if (!file || !ACCEPTED.includes(file.type)) throw new Error('Use uma imagem JPG, PNG ou WebP.')
+  if (file.size > AVATAR_MAX_INPUT_MB * 1024 * 1024) throw new Error(`A imagem é grande demais (máx. ${AVATAR_MAX_INPUT_MB} MB).`)
+  const image = await decode(file)
+  const w = image.width || image.naturalWidth
+  const h = image.height || image.naturalHeight
+  const scale = Math.min(1, max / Math.max(w, h))
+  const cw = Math.max(1, Math.round(w * scale))
+  const ch = Math.max(1, Math.round(h * scale))
+  const canvas = document.createElement('canvas')
+  canvas.width = cw
+  canvas.height = ch
+  const ctx = canvas.getContext('2d')
+  ctx.fillStyle = '#fff'
+  ctx.fillRect(0, 0, cw, ch)
+  ctx.drawImage(image, 0, 0, cw, ch)
+  const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', quality))
+  if (!blob) throw new Error('Não deu pra processar essa imagem.')
+  return blob
+}

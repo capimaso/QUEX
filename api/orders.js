@@ -1,3 +1,4 @@
+import { firstPhotoUrl } from './_lib/photos.js'
 import { supabaseRequest, selectOne, updateOne } from './_lib/db.js'
 import { requireUser } from './_lib/auth.js'
 import { badRequest, forbidden, notFound, ok, serverError, unauthorized } from './_lib/http.js'
@@ -36,7 +37,7 @@ async function buildOrders(orders) {
       product_id: Number(item.produto_id),
       seller_id: Number(product?.vendedor_id || 0),
       product_name: product?.nome || 'Produto',
-      image_url: product?.fotos_url || '',
+      image_url: firstPhotoUrl(product?.fotos_url),
       unit: product?.unidade || 'kg',
       quantity: Number(item.quantidade),
       unit_price: Number(item.preco_unitario || 0),
