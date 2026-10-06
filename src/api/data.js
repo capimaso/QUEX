@@ -121,7 +121,7 @@ export async function removeCartItem(id) {
 }
 
 export async function checkout(_items, _buyer, address, paymentMethod = 'pix') {
-  const data = await apiRequest('/api/checkout', {
+  const data = await apiRequest('/api/orders?resource=checkout', {
     method: 'POST',
     body: JSON.stringify({ address, payment_method: paymentMethod }),
   })

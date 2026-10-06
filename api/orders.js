@@ -1,5 +1,11 @@
 import { firstPhotoUrl } from './_lib/photos.js'
-import { supabaseRequest, selectOne, insertOne, updateOne } from './_lib/db.js'
+import {
+  supabaseRequest,
+  supabaseRpc,
+  selectOne,
+  insertOne,
+  updateOne,
+} from './_lib/db.js'
 import { requireUser } from './_lib/auth.js'
 import { badRequest, created, forbidden, json, notFound, ok, serverError, unauthorized } from './_lib/http.js'
 
@@ -103,6 +109,81 @@ async function buildOrders(orders, viewer = null) {
 // POST /api/orders?resource=review   { order_id, rating (1-5), comment? }
 // Comprador avalia o vendedor e vendedor avalia o comprador, só depois de ENTREGUE, uma vez por pedido.
 // As mesmas regras também existem no banco (trigger quex_validar_avaliacao): aqui só damos mensagens amigáveis.
+async function createCheckout(req, res, user) {
+  if (user.tipo !== 'comprador') {
+    return forbidden(
+      res,
+      'Somente compradores podem finalizar pedidos.'
+    )
+  }
+
+  const address = String(
+    req.body?.address || ''
+  ).trim()
+
+  const paymentMethod = String(
+    req.body?.payment_method || 'pix'
+  )
+    .trim()
+    .toLowerCase()
+
+  if (address.length < 8) {
+    return badRequest(
+      res,
+      'Informe um endereço de entrega completo.'
+    )
+  }
+
+  if (
+    ![
+      'pix',
+      'cartao',
+      'dinheiro',
+    ].includes(paymentMethod)
+  ) {
+    return badRequest(
+      res,
+      'Forma de pagamento inválida.'
+    )
+  }
+
+  try {
+    const result = await supabaseRpc(
+      'quex_finalizar_checkout',
+      {
+        p_comprador_id: Number(user.id),
+        p_endereco_destino: address,
+        p_forma_pagamento: paymentMethod,
+      }
+    )
+
+    return ok(res, {
+      order: Array.isArray(result)
+        ? result[0]
+        : result,
+    })
+  } catch (error) {
+    const message = String(
+      error.message || ''
+    )
+
+    if (
+      message.includes(
+        'quex_finalizar_checkout'
+      )
+    ) {
+      return serverError(
+        res,
+        new Error(
+          'A função de checkout ainda não foi instalada no Supabase. Execute supabase/app.sql uma vez no SQL Editor.'
+        )
+      )
+    }
+
+    throw error
+  }
+}
+
 async function createReview(req, res, user) {
   const body = req.body && typeof req.body === 'object' ? req.body : {}
   const orderId = Number(body.order_id)
@@ -146,7 +227,18 @@ export default async function handler(req, res) {
   try {
     const user = await requireUser(req)
     if (!user) return unauthorized(res)
-
+    
+    if (
+      req.method === 'POST' &&
+      req.query?.resource === 'checkout'
+    ) {
+      return createCheckout(
+        req,
+        res,
+        user
+      )
+    }
+    
     if (req.method === 'POST' && req.query?.resource === 'review') return createReview(req, res, user)
 
     if (req.method === 'GET') {
