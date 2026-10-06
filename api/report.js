@@ -83,7 +83,7 @@ async function sendReportEmail({ report, reporter, reportedUser, product }) {
           </tr>
           <tr>
             <td style="padding:8px;border-bottom:1px solid #e5e7eb"><strong>Status</strong></td>
-            <td style="padding:8px;border-bottom:1px solid #e5e7eb">${escapeHtml(report.status || 'pendente')}</td>
+            <td style="padding:8px;border-bottom:1px solid #e5e7eb">${escapeHtml(report.status || 'aberta')}</td>
           </tr>
         </tbody>
       </table>
@@ -212,7 +212,7 @@ export default async function handler(req, res) {
       produto_id: productId,
       categoria: category,
       descricao: description || null,
-      status: 'pendente',
+      status: 'aberta',
     })
 
     let emailSent = false
@@ -252,7 +252,7 @@ export default async function handler(req, res) {
       report: {
         id: Number(report.id),
         categoria: report.categoria,
-        status: report.status || 'pendente',
+        status: report.status || 'aberta',
         produto_id: report.produto_id == null ? null : Number(report.produto_id),
         usuario_denunciado_id: Number(report.usuario_denunciado_id),
       },
