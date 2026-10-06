@@ -158,6 +158,26 @@ export async function getPerson(id) {
   return (await apiRequest(`/api/people?id=${encodeURIComponent(id)}`)).person
 }
 
+// ---------- denúncias ----------
+export async function submitReport({
+  reporterId,
+  reportedUserId,
+  productId = null,
+  category,
+  description = '',
+}) {
+  return apiRequest('/api/report', {
+    method: 'POST',
+    body: JSON.stringify({
+      denunciante_id: Number(reporterId),
+      usuario_denunciado_id: Number(reportedUserId),
+      produto_id: productId == null ? null : Number(productId),
+      categoria: category,
+      descricao: description.trim() || null,
+    }),
+  })
+}
+
 // ---------- foto de perfil (Supabase Storage) ----------
 // 1) reduz/corta no navegador  2) sobe pro bucket "avatars" na pasta do próprio usuário
 // 3) avisa a API, que valida o caminho, salva em usuario.foto_perfil e apaga a foto antiga.
