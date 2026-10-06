@@ -30,71 +30,78 @@ svg.animate-spin * {
 }
 
 /* =========================================================
-   PARALLAX HERO
+   PARALLAX HERO — V2
    ========================================================= */
 
 /*
-  Fundo de fallback caso a imagem ainda esteja carregando.
-  Não usamos classe bg-[#0D1273], porque a regra global
-  do dark mode do projeto alterava esse background com !important.
+  Cor usada somente enquanto a fotografia carrega.
+  A foto não recebe nenhum filtro roxo/azulado.
 */
 .quex-parallax-hero {
   background: #0D1273;
   isolation: isolate;
+  cursor: default;
 }
 
 /*
-  A própria fotografia fica em uma tag <img>, então as regras
-  globais de background do modo escuro não conseguem substituí-la.
+  A escala maior cria uma "margem" invisível ao redor da foto.
+  Assim, quando ela se move com o mouse, nunca aparecem bordas vazias.
 */
 .quex-parallax-image {
   z-index: 0;
-  transform: translate3d(0, 0, 0) scale(1.06);
+  transform:
+    translate3d(0, 0, 0)
+    scale(1.09);
   transform-origin: center center;
-  transition: transform 180ms ease-out;
   will-change: transform;
   backface-visibility: hidden;
+  opacity: 1;
 }
 
 /*
-  Overlay NEUTRO, não roxo.
-  A foto continua claramente visível no modo claro e escuro.
-  O gradiente concentra um pouco mais de sombra atrás do texto
-  e deixa o restante da fotografia quase intacto.
+  Camada escura NEUTRA para melhorar a leitura.
+  Ela é mais forte apenas atrás do texto, à esquerda,
+  e fica bem mais transparente no restante da fotografia.
 */
 .quex-parallax-overlay {
   z-index: 1;
   background:
     linear-gradient(
       90deg,
-      rgba(4, 10, 30, 0.30) 0%,
-      rgba(4, 10, 30, 0.16) 46%,
-      rgba(4, 10, 30, 0.06) 72%,
-      rgba(4, 10, 30, 0.03) 100%
+      rgba(3, 7, 18, 0.46) 0%,
+      rgba(3, 7, 18, 0.34) 34%,
+      rgba(3, 7, 18, 0.20) 58%,
+      rgba(3, 7, 18, 0.10) 78%,
+      rgba(3, 7, 18, 0.08) 100%
     );
 }
 
 /*
-  Dark mode: não adicionamos camada azul/roxa.
-  Mantemos exatamente o mesmo tratamento neutro.
+  O dark mode não pode trocar nem a foto nem a cor do overlay.
+  O !important aqui serve especificamente para vencer as regras
+  globais do tema escuro do projeto.
 */
-html[data-theme='dark'] .quex-parallax-hero {
+html[data-theme='dark']
+.quex-parallax-hero {
   background: #0D1273 !important;
 }
 
-html[data-theme='dark'] .quex-parallax-image {
+html[data-theme='dark']
+.quex-parallax-image {
   opacity: 1 !important;
   filter: none !important;
 }
 
-html[data-theme='dark'] .quex-parallax-overlay {
+html[data-theme='dark']
+.quex-parallax-overlay {
   background:
     linear-gradient(
       90deg,
-      rgba(2, 6, 23, 0.30) 0%,
-      rgba(2, 6, 23, 0.16) 46%,
-      rgba(2, 6, 23, 0.06) 72%,
-      rgba(2, 6, 23, 0.03) 100%
+      rgba(2, 6, 23, 0.48) 0%,
+      rgba(2, 6, 23, 0.35) 34%,
+      rgba(2, 6, 23, 0.21) 58%,
+      rgba(2, 6, 23, 0.11) 78%,
+      rgba(2, 6, 23, 0.08) 100%
     ) !important;
 }
 
@@ -124,7 +131,9 @@ html[data-theme='dark'] .quex-parallax-overlay {
 
 [role='menu'],
 .quex-popover {
-  animation: quex-fade-in 200ms ease-out both;
+  animation:
+    quex-fade-in
+    200ms ease-out both;
 }
 
 @keyframes quex-fade-in {
@@ -132,6 +141,7 @@ html[data-theme='dark'] .quex-parallax-overlay {
     opacity: 0;
     transform: translateY(-4px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -139,12 +149,16 @@ html[data-theme='dark'] .quex-parallax-overlay {
 }
 
 [class~='fixed'][class~='inset-0'][class*='bg-black'] {
-  animation: quex-backdrop-in 200ms ease-out both;
+  animation:
+    quex-backdrop-in
+    200ms ease-out both;
 }
 
 [class~='fixed'][class~='inset-0'][class*='bg-black']
   > [class*='rounded'] {
-  animation: quex-modal-in 200ms ease-out both;
+  animation:
+    quex-modal-in
+    200ms ease-out both;
 }
 
 @keyframes quex-backdrop-in {
@@ -155,37 +169,38 @@ html[data-theme='dark'] .quex-parallax-overlay {
 @keyframes quex-modal-in {
   from {
     opacity: 0;
-    transform: translateY(6px) scale(.99);
+    transform:
+      translateY(6px)
+      scale(.99);
   }
+
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform:
+      translateY(0)
+      scale(1);
   }
 }
 
-/* Loading em modo escuro */
-html[data-theme='dark'] .quex-loading-fish {
-  filter: drop-shadow(
-    0 4px 10px
-    rgba(129, 140, 248, .16)
-  );
+html[data-theme='dark']
+.quex-loading-fish {
+  filter:
+    drop-shadow(
+      0 4px 10px
+      rgba(129, 140, 248, .16)
+    );
 }
 
+/*
+  Redução de movimento continua valendo para loaders/cards/modal,
+  MAS não força mais transform !important no Hero.
+  Era isso que podia impedir o parallax em máquinas com a opção
+  "reduzir animações" ativada no sistema operacional.
+*/
 @media (prefers-reduced-motion: reduce) {
   .quex-loading-fish,
   .animate-spin {
     animation: none !important;
-  }
-
-  /*
-    Acessibilidade: quando o sistema do usuário pede menos movimento,
-    o Hero continua mostrando a foto normalmente, só sem parallax.
-  */
-  .quex-parallax-image {
-    transform:
-      translate3d(0, 0, 0)
-      scale(1.06) !important;
-    transition: none !important;
   }
 
   .quex-card-motion:hover {
