@@ -241,6 +241,35 @@ export async function listMySupportTickets() {
   return (await apiRequest('/api/support')).tickets || []
 }
 
+export async function getMySupportTicket(
+  ticketId
+) {
+  return apiRequest(
+    `/api/support?resource=ticket&id=${encodeURIComponent(ticketId)}`
+  )
+}
+
+export async function sendSupportMessage(
+  ticketId,
+  message
+) {
+  return apiRequest(
+    '/api/support?resource=message',
+    {
+      method: 'POST',
+
+      body: JSON.stringify({
+        ticket_id: Number(
+          ticketId
+        ),
+
+        mensagem:
+          message.trim(),
+      }),
+    }
+  )
+}
+
 export async function uploadAvatar(file, authUserId) {
   const blob = await compressAvatar(file)
   const path = `${authUserId}/${Date.now()}.jpg`

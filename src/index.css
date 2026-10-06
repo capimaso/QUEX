@@ -272,6 +272,67 @@ html[data-theme='dark'] .admin-chat-bubble-adm {
   color: #e9edef !important;
 }
 
+/* =========================================================
+   Chat pequeno do suporte
+   ========================================================= */
+
+.support-chat-messages {
+  background:
+    linear-gradient(
+      rgba(255, 255, 255, 0.76),
+      rgba(255, 255, 255, 0.76)
+    ),
+    #eef1f5;
+
+  border-radius: 12px;
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+.support-bubble {
+  max-width: 82%;
+  padding: 8px 10px;
+  border-radius: 12px;
+  line-height: 1.4;
+  box-shadow:
+    0 1px 2px
+    rgba(0, 0, 0, 0.07);
+}
+
+/* Administração à esquerda */
+.support-bubble-admin {
+  background: #ffffff;
+  color: #27324a;
+  border-bottom-left-radius: 4px;
+}
+
+/* Usuário à direita */
+.support-bubble-user {
+  background: #dfe3ff;
+  color: #19205c;
+  border-bottom-right-radius: 4px;
+}
+
+
+/* DARK MODE */
+
+html[data-theme='dark']
+.support-chat-messages {
+  background: #0b141a !important;
+}
+
+html[data-theme='dark']
+.support-bubble-admin {
+  background: #202c33 !important;
+  color: #e9edef !important;
+}
+
+html[data-theme='dark']
+.support-bubble-user {
+  background: #3730a3 !important;
+  color: #eef2ff !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   *, *::before, *::after {

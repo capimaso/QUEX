@@ -3,6 +3,7 @@ import {
   insertOne,
   selectOne,
   supabaseRequest,
+  updateOne,
 } from './_lib/db.js'
 import { requireUser, resolveAccount } from './_lib/auth.js'
 import {
@@ -163,6 +164,14 @@ async function addTicketMessage(req, res) {
     is_adm: false,
   })
 
+  await updateOne(
+    'ticket',
+    `id=eq.${encodeURIComponent(ticketId)}`,
+    {
+      status: 'aberto',
+    }
+  )
+
   return created(res, {
     message: {
       id: Number(row.id),
@@ -170,6 +179,99 @@ async function addTicketMessage(req, res) {
       mensagem: row.mensagem,
       data_envio: row.data_envio,
     },
+  })
+}
+
+async function getTicketDetail(req, res) {
+  const user = await requireUser(req)
+
+  if (!user) {
+    return unauthorized(res)
+  }
+
+  const ticketId = Number(req.query?.id)
+
+  if (
+    !Number.isInteger(ticketId) ||
+    ticketId <= 0
+  ) {
+    return badRequest(
+      res,
+      'Ticket inválido.'
+    )
+  }
+
+  const ticket = await selectOne(
+    'ticket',
+    `id=eq.${encodeURIComponent(ticketId)}`
+  )
+
+  if (!ticket) {
+    return notFound(
+      res,
+      'Ticket não encontrado.'
+    )
+  }
+
+  // Segurança:
+  // o usuário só pode abrir o próprio ticket.
+  if (
+    Number(ticket.usuario_id) !==
+    Number(user.id)
+  ) {
+    return forbidden(
+      res,
+      'Você não pode acessar este ticket.'
+    )
+  }
+
+  const messages =
+    await supabaseRequest(
+      `/ticket_mensagem?select=id,ticket_id,autor_id,mensagem,data_envio,is_adm&ticket_id=eq.${encodeURIComponent(ticketId)}&order=data_envio.asc`
+    )
+
+  return ok(res, {
+    ticket: {
+      id: Number(ticket.id),
+      numero: Number(ticket.numero),
+      label: ticketLabel(
+        ticket.numero
+      ),
+      motivo: ticket.motivo,
+      status: ticket.status,
+      data_criacao:
+        ticket.data_criacao,
+      data_atualizacao:
+        ticket.data_atualizacao,
+    },
+
+    messages: (messages || []).map(
+      message => ({
+        id: Number(message.id),
+
+        ticket_id: Number(
+          message.ticket_id
+        ),
+
+        autor_id:
+          message.autor_id == null
+            ? null
+            : Number(
+                message.autor_id
+              ),
+
+        mensagem:
+          message.mensagem,
+
+        data_envio:
+          message.data_envio,
+
+        is_adm:
+          Boolean(
+            message.is_adm
+          ),
+      })
+    ),
   })
 }
 
@@ -218,6 +320,16 @@ export default async function handler(req, res) {
           data_criacao: ticket.data_criacao,
         },
       })
+    }
+
+    if (
+      req.method === 'GET' &&
+      req.query?.resource === 'ticket'
+    ) {
+      return getTicketDetail(
+        req,
+        res
+      )
     }
 
     if (req.method === 'GET') {
