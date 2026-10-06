@@ -15,11 +15,6 @@
   animation: quex-fish-spin 2s linear infinite;
 }
 
-/*
-  Compatibilidade: qualquer spinner antigo que ainda use animate-spin
-  passa a exibir o mesmo peixe. Isso evita deixar um Loader2 antigo
-  perdido em algum botão/modal.
-*/
 .animate-spin {
   border: 0 !important;
   background:
@@ -34,18 +29,76 @@ svg.animate-spin * {
   stroke: transparent !important;
 }
 
-/* Parallax */
-.quex-parallax-layer {
-  transform: translate3d(0, 0, 0) scale(1.045);
-  transition: transform 200ms ease-out;
-  will-change: transform;
+/* =========================================================
+   PARALLAX HERO
+   ========================================================= */
+
+/*
+  Fundo de fallback caso a imagem ainda esteja carregando.
+  Não usamos classe bg-[#0D1273], porque a regra global
+  do dark mode do projeto alterava esse background com !important.
+*/
+.quex-parallax-hero {
+  background: #0D1273;
+  isolation: isolate;
 }
 
 /*
-  Correção global do bug dos ícones sobre o texto.
-  O .input-base do projeto usa padding próprio; estas regras garantem
-  que utilitários pl-/pr- continuem tendo espaço suficiente.
+  A própria fotografia fica em uma tag <img>, então as regras
+  globais de background do modo escuro não conseguem substituí-la.
 */
+.quex-parallax-image {
+  z-index: 0;
+  transform: translate3d(0, 0, 0) scale(1.06);
+  transform-origin: center center;
+  transition: transform 180ms ease-out;
+  will-change: transform;
+  backface-visibility: hidden;
+}
+
+/*
+  Overlay NEUTRO, não roxo.
+  A foto continua claramente visível no modo claro e escuro.
+  O gradiente concentra um pouco mais de sombra atrás do texto
+  e deixa o restante da fotografia quase intacto.
+*/
+.quex-parallax-overlay {
+  z-index: 1;
+  background:
+    linear-gradient(
+      90deg,
+      rgba(4, 10, 30, 0.30) 0%,
+      rgba(4, 10, 30, 0.16) 46%,
+      rgba(4, 10, 30, 0.06) 72%,
+      rgba(4, 10, 30, 0.03) 100%
+    );
+}
+
+/*
+  Dark mode: não adicionamos camada azul/roxa.
+  Mantemos exatamente o mesmo tratamento neutro.
+*/
+html[data-theme='dark'] .quex-parallax-hero {
+  background: #0D1273 !important;
+}
+
+html[data-theme='dark'] .quex-parallax-image {
+  opacity: 1 !important;
+  filter: none !important;
+}
+
+html[data-theme='dark'] .quex-parallax-overlay {
+  background:
+    linear-gradient(
+      90deg,
+      rgba(2, 6, 23, 0.30) 0%,
+      rgba(2, 6, 23, 0.16) 46%,
+      rgba(2, 6, 23, 0.06) 72%,
+      rgba(2, 6, 23, 0.03) 100%
+    ) !important;
+}
+
+/* Correção global do bug dos ícones sobre o texto */
 .input-base.pl-10 { padding-left: 2.75rem !important; }
 .input-base.pl-11 { padding-left: 2.9rem !important; }
 .input-base.pl-12 { padding-left: 3.1rem !important; }
@@ -110,9 +163,12 @@ svg.animate-spin * {
   }
 }
 
-/* Loading em modo escuro continua confortável */
+/* Loading em modo escuro */
 html[data-theme='dark'] .quex-loading-fish {
-  filter: drop-shadow(0 4px 10px rgba(129, 140, 248, .16));
+  filter: drop-shadow(
+    0 4px 10px
+    rgba(129, 140, 248, .16)
+  );
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -121,8 +177,14 @@ html[data-theme='dark'] .quex-loading-fish {
     animation: none !important;
   }
 
-  .quex-parallax-layer {
-    transform: translate3d(0, 0, 0) scale(1.045) !important;
+  /*
+    Acessibilidade: quando o sistema do usuário pede menos movimento,
+    o Hero continua mostrando a foto normalmente, só sem parallax.
+  */
+  .quex-parallax-image {
+    transform:
+      translate3d(0, 0, 0)
+      scale(1.06) !important;
     transition: none !important;
   }
 
@@ -133,7 +195,8 @@ html[data-theme='dark'] .quex-loading-fish {
   [role='menu'],
   .quex-popover,
   [class~='fixed'][class~='inset-0'][class*='bg-black'],
-  [class~='fixed'][class~='inset-0'][class*='bg-black'] > [class*='rounded'] {
+  [class~='fixed'][class~='inset-0'][class*='bg-black']
+    > [class*='rounded'] {
     animation: none !important;
   }
 }
