@@ -103,6 +103,11 @@ export default function Home() {
             </Link>
           </div>
         </div>
+        <div className="absolute bottom-3 right-4 z-20 text-right">
+          <p className="text-[10px] text-white/55 sm:text-xs">
+            Foto: Gaby Barathieu / Ocean Image Bank
+          </p>
+        </div>
       </ParallaxHero>
 
       <section className="bg-white py-16">
