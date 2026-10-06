@@ -21,6 +21,7 @@ export default function NavBar({ user, cartCount = 0 }) {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const menuRef = useRef(null)
+  const closeTimerRef = useRef(null)
   const { logout } = useAuth()
   const location = useLocation()
 
@@ -102,14 +103,21 @@ export default function NavBar({ user, cartCount = 0 }) {
               ref={menuRef}
               className="relative"
               onMouseEnter={() => {
-                if (window.matchMedia('(min-width: 768px)').matches) {
-                  setUserMenuOpen(true)
+                if (!window.matchMedia('(min-width: 768px)').matches) return
+
+                if (closeTimerRef.current) {
+                  clearTimeout(closeTimerRef.current)
+                  closeTimerRef.current = null
                 }
+
+                setUserMenuOpen(true)
               }}
               onMouseLeave={() => {
-                if (window.matchMedia('(min-width: 768px)').matches) {
+                if (!window.matchMedia('(min-width: 768px)').matches) return
+
+                closeTimerRef.current = setTimeout(() => {
                   setUserMenuOpen(false)
-                }
+                }, 250)
               }}
             >
               <button
@@ -134,7 +142,7 @@ export default function NavBar({ user, cartCount = 0 }) {
               </button>
 
               {userMenuOpen && (
-                <div role="menu" className="absolute right-0 mt-2 w-56 rounded-2xl border border-gray-100 bg-white p-2 shadow-xl">
+                  <div role="menu" className="absolute right-0 mt-1 w-56 rounded-2xl border border-gray-100 bg-white p-2 shadow-xl">
                   <div className="border-b border-gray-100 px-3 py-2 sm:hidden">
                     <p className="truncate text-sm font-semibold text-[#0D1273]">
                       {user?.full_name || 'Usuário'}
