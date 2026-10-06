@@ -8,11 +8,13 @@ import {
   Store,
 } from 'lucide-react'
 import SellerCard from '@/components/SellerCard'
+import LoadingFish from '@/components/LoadingFish'
 import {
   Button,
   InputWithIcon,
 } from '@/components/ui'
 import { listSellers } from '@/api/data'
+
 
 const PAGE = 24
 
@@ -134,13 +136,11 @@ export default function Sellers() {
       )}
 
       {loading ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {[0, 1, 2].map(index => (
-            <div
-              key={index}
-              className="h-40 animate-pulse rounded-2xl bg-gray-100"
-            />
-          ))}
+        <div className="flex justify-center py-16">
+          <LoadingFish
+            size="lg"
+            label="Carregando vendedores..."
+          />
         </div>
       ) : sellers.length === 0 ? (
         <div className="py-16 text-center text-gray-400">
