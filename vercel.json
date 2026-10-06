@@ -3,6 +3,45 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+    {
+      "source": "/api/admin/tickets/:id/reply",
+      "destination": "/api/admin/index?resource=ticket_reply&id=:id"
+    },
+    {
+      "source": "/api/admin/tickets/:id/status",
+      "destination": "/api/admin/index?resource=ticket_status&id=:id"
+    },
+    {
+      "source": "/api/admin/tickets/:id",
+      "destination": "/api/admin/index?resource=ticket&id=:id"
+    },
+    {
+      "source": "/api/admin/tickets",
+      "destination": "/api/admin/index?resource=tickets"
+    },
+    {
+      "source": "/api/admin/usuarios/:id/banir",
+      "destination": "/api/admin/index?resource=user_ban&id=:id"
+    },
+    {
+      "source": "/api/admin/usuarios",
+      "destination": "/api/admin/index?resource=users"
+    },
+    {
+      "source": "/api/admin/reivindicacoes/:id/aprovar",
+      "destination": "/api/admin/index?resource=claim_approve&id=:id"
+    },
+    {
+      "source": "/api/admin/reivindicacoes/:id/rejeitar",
+      "destination": "/api/admin/index?resource=claim_reject&id=:id"
+    },
+    {
+      "source": "/api/admin/reivindicacoes",
+      "destination": "/api/admin/index?resource=claims"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
   ]
 }
