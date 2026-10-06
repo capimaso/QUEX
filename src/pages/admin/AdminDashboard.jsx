@@ -898,64 +898,133 @@ export default function AdminDashboard() {
             </Select>
           </div>
 
-          <div className="space-y-3">
-            {selectedTicket.messages.map(message => (
-              <div
-                key={message.id}
-                className={`flex ${message.is_adm ? 'justify-end' : 'justify-start'}`}
-              >
-                <div
-                  className={`max-w-[85%] rounded-2xl px-4 py-3 ${
-                    message.is_adm
-                      ? 'bg-[#0D1273] text-white'
-                      : 'bg-gray-100 text-gray-700'
-                  }`}
-                >
-                  <p className={`mb-1 text-xs font-medium ${message.is_adm ? 'text-white/70' : 'text-gray-400'}`}>
-                    {message.autor_nome}
-                  </p>
-                  <p className="whitespace-pre-line text-sm leading-relaxed">
-                    {message.mensagem}
-                  </p>
-                  <p className={`mt-2 text-[10px] ${message.is_adm ? 'text-white/60' : 'text-gray-400'}`}>
-                    {formatDate(message.data_envio)}
-                  </p>
-                </div>
-              </div>
-            ))}
+          <div className="flex h-[600px] max-h-[70vh] flex-col overflow-hidden rounded-2xl border border-gray-200 bg-[#efeae2] admin-chat-area">
+
+          {/* TOPO DO CHAT */}
+          <div className="flex items-center justify-between gap-4 border-b border-gray-200 bg-white px-4 py-3 admin-chat-header">
+            <div>
+              <p className="font-semibold text-[#0D1273]">
+                {selectedTicket.ticket.usuario_nome}
+              </p>
+
+              <p className="text-xs text-gray-500">
+                {REASON_LABELS[selectedTicket.ticket.motivo] ||
+                  selectedTicket.ticket.motivo}
+              </p>
+            </div>
+
+            <Select
+              className="w-40"
+              value={selectedTicket.ticket.status}
+              onChange={event =>
+                changeTicketStatus(event.target.value)
+              }
+            >
+              <option value="aberto">
+                Aberto
+              </option>
+
+              <option value="respondido">
+                Respondido
+              </option>
+
+              <option value="fechado">
+                Fechado
+              </option>
+            </Select>
           </div>
 
-          <form onSubmit={sendReply} className="mt-6 border-t border-gray-100 pt-5">
-            <Label>Responder ticket</Label>
-            <Textarea
-              className="mt-1.5"
-              rows={4}
-              maxLength={2000}
-              value={reply}
-              onChange={event => setReply(event.target.value)}
-              disabled={selectedTicket.ticket.status === 'fechado'}
-              placeholder={
-                selectedTicket.ticket.status === 'fechado'
-                  ? 'Reabra o ticket para responder.'
-                  : 'Digite a resposta da administração...'
-              }
-            />
+          {/* HISTÓRICO */}
+          <div className="flex-1 space-y-3 overflow-y-auto px-4 py-5">
 
-            <div className="mt-3 flex justify-end">
+            {selectedTicket.messages.length === 0 ? (
+              <div className="py-10 text-center text-sm text-gray-500">
+                Nenhuma mensagem neste ticket.
+              </div>
+            ) : (
+              selectedTicket.messages.map(message => (
+                <div
+                  key={message.id}
+                  className={`flex ${
+                    message.is_adm
+                      ? 'justify-end'
+                      : 'justify-start'
+                  }`}
+                >
+                  <div
+                    className={
+                      message.is_adm
+                        ? 'admin-chat-bubble admin-chat-bubble-adm'
+                        : 'admin-chat-bubble admin-chat-bubble-user'
+                    }
+                  >
+                    <p className="mb-1 text-xs font-semibold opacity-70">
+                      {message.is_adm
+                        ? 'Administração QUÉX'
+                        : message.autor_nome}
+                    </p>
+
+                    <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
+                      {message.mensagem}
+                    </p>
+
+                    <p className="mt-1 text-right text-[10px] opacity-60">
+                      {formatDate(message.data_envio)}
+                    </p>
+                  </div>
+                </div>
+              ))
+            )}
+
+          </div>
+
+          {/* CAMPO DE RESPOSTA */}
+          <form
+            onSubmit={sendReply}
+            className="border-t border-gray-200 bg-white p-3 admin-chat-footer"
+          >
+            <div className="flex items-end gap-2">
+
+              <Textarea
+                rows={2}
+                maxLength={2000}
+                value={reply}
+                onChange={event =>
+                  setReply(event.target.value)
+                }
+                disabled={
+                  selectedTicket.ticket.status ===
+                  'fechado'
+                }
+                placeholder={
+                  selectedTicket.ticket.status ===
+                  'fechado'
+                    ? 'Reabra o ticket para responder.'
+                    : 'Digite uma mensagem...'
+                }
+                className="min-h-[46px] flex-1 resize-none"
+              />
+
               <Button
+                type="submit"
                 disabled={
                   replying ||
-                  selectedTicket.ticket.status === 'fechado'
+                  !reply.trim() ||
+                  selectedTicket.ticket.status ===
+                    'fechado'
                 }
+                className="h-[46px] shrink-0"
               >
                 {replying ? (
-                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Enviando...</>
+                  <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
-                  'Enviar resposta'
+                  'Enviar'
                 )}
               </Button>
+
             </div>
           </form>
+        </div>
         </Modal>
       )}
 

@@ -217,6 +217,61 @@ html[data-contrast='high'] select:focus-visible {
   outline-offset: 2px;
 }
 
+/* =========================================================
+   Chat administrativo
+   ========================================================= */
+
+.admin-chat-bubble {
+  max-width: 75%;
+  border-radius: 14px;
+  padding: 10px 12px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+/* Mensagem do usuário */
+.admin-chat-bubble-user {
+  background: #ffffff;
+  color: #1f2937;
+  border-bottom-left-radius: 4px;
+}
+
+/* Mensagem da administração */
+.admin-chat-bubble-adm {
+  background: #d9fdd3;
+  color: #1f2937;
+  border-bottom-right-radius: 4px;
+}
+
+/* Fundo estilo chat */
+.admin-chat-area {
+  background-color: #efeae2;
+}
+
+
+/* ---------- DARK MODE ---------- */
+
+html[data-theme='dark'] .admin-chat-area {
+  background-color: #0b141a !important;
+}
+
+html[data-theme='dark'] .admin-chat-header,
+html[data-theme='dark'] .admin-chat-footer {
+  background-color: #172033 !important;
+  border-color: #334155 !important;
+}
+
+/* Usuário: azul acinzentado */
+html[data-theme='dark'] .admin-chat-bubble-user {
+  background-color: #202c33 !important;
+  color: #e9edef !important;
+}
+
+/* Administração: verde/azul escuro */
+html[data-theme='dark'] .admin-chat-bubble-adm {
+  background-color: #005c4b !important;
+  color: #e9edef !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   *, *::before, *::after {
