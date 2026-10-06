@@ -1,307 +1,177 @@
-# QUÉX — Mercado Online de Peixe
+# QUÉX — Marketplace de Pescados
 
-O **QUÉX** é um marketplace online que conecta pescadores e vendedores de pescados diretamente a compradores, facilitando a oferta de peixes e iguarias frescas e permitindo organizar o processo de venda, carrinho, pedidos e entrega em um único sistema.
+O **QUÉX** é um marketplace online que conecta pescadores e vendedores de pescados diretamente a compradores. Nesta etapa do projeto integrador, iniciamos uma API em Node.js e Express para disponibilizar produtos do marketplace por meio de endpoints HTTP.
 
-A interface mantém a identidade visual do projeto original, com azul profundo, laranja, tipografia Inter + Playfair Display, cartões arredondados e uma experiência simples de marketplace. A arquitetura foi reorganizada para funcionar como uma aplicação React/Vite na Vercel, usando **Vercel Serverless Functions + Supabase PostgreSQL/REST** para o back-end.
+## Integrantes
 
-## Funcionalidades
+- Larissa Siegel
+- Laura Mello
+- Samuel Santos
 
-### Comprador
+## Tecnologias utilizadas
 
-- Cadastro com nome, e-mail, senha, CPF e telefone.
-- Login com e-mail/senha ou Google, confirmação de e-mail e sessão persistente (Supabase Auth).
-- Pesquisa de peixes e iguarias por nome, espécie, descrição ou vendedor.
-- Filtros por espécie, com/sem espinha e água doce/água salgada.
-- Visualização detalhada de cada produto.
-- Carrinho persistido no banco de dados.
-- Alteração de quantidade e remoção de itens.
-- Checkout com endereço e forma de pagamento.
-- Histórico e acompanhamento de pedidos.
-- Atualização do próprio perfil e troca de senha.
+- **Node.js:** ambiente que executa JavaScript no servidor.
+- **NPM:** gerenciador de pacotes do Node.js.
+- **Express:** biblioteca utilizada para criar as rotas da API.
+- **React e Vite:** tecnologias já utilizadas no front-end do QUÉX.
 
-### Vendedor
-
-- Cadastro com nome, e-mail, senha, CPF/CNPJ, telefone e nome do estabelecimento ou da pessoa.
-- Área de loja própria.
-- Cadastro, edição, ativação e desativação de produtos.
-- Informações do produto: nome, espécie/tipo da iguaria, descrição, preço, estoque, unidade, foto, espinha e tipo de água.
-- Visualização dos pedidos que possuem produtos da loja.
-- Atualização do andamento do pedido.
-- Geração de código de rastreio no despacho.
-- Atualização dos dados do vendedor e configuração de entrega própria.
-
-## Stack
-
-- React 18
-- Vite
-- React Router DOM
-- Tailwind CSS
-- Lucide React
-- React Hot Toast
-- Vercel Serverless Functions
-- Supabase PostgreSQL / REST API
-- Vercel
-
-## Estrutura do projeto
+## Estrutura da entrega de back-end
 
 ```text
 QUEX/
-├── api/
-│   ├── _lib/
-│   │   ├── auth.js
-│   │   ├── db.js
-│   │   ├── http.js
-│   │   └── password.js
-│   ├── auth/
-│   │   ├── change-password.js
-│   │   ├── login.js
-│   │   ├── logout.js
-│   │   ├── me.js
-│   │   └── register.js
-│   ├── cart.js
-│   ├── checkout.js
-│   ├── orders.js
-│   ├── products.js
-│   └── profile.js
-├── public/
-│   └── manifest.json
-├── src/
-│   ├── api/
-│   │   ├── client.js
-│   │   └── data.js
-│   ├── components/
-│   │   ├── layout/
-│   │   │   ├── AppLayout.jsx
-│   │   │   └── NavBar.jsx
-│   │   ├── products/
-│   │   │   └── ProductCard.jsx
-│   │   ├── AuthLayout.jsx
-│   │   ├── ProtectedRoute.jsx
-│   │   └── ui.jsx
-│   ├── lib/
-│   │   └── AuthContext.jsx
-│   ├── pages/
-│   │   ├── seller/
-│   │   │   ├── ProductForm.jsx
-│   │   │   └── SellerDashboard.jsx
-│   │   ├── Cart.jsx
-│   │   ├── Checkout.jsx
-│   │   ├── Home.jsx
-│   │   ├── Login.jsx
-│   │   ├── Marketplace.jsx
-│   │   ├── NotFound.jsx
-│   │   ├── Orders.jsx
-│   │   ├── ProductDetail.jsx
-│   │   ├── Profile.jsx
-│   │   └── Register.jsx
-│   ├── App.jsx
-│   ├── index.css
-│   └── main.jsx
-├── supabase/
-│   ├── schema.sql
-│   ├── app.sql
-│   └── hardening.sql
-├── .env.example
-├── .env
-├── index.html
-├── jsconfig.json
-├── package.json
-├── postcss.config.js
-├── tailwind.config.js
-├── vercel.json
-└── vite.config.js
+├── api/                 # Funções serverless já existentes no projeto
+├── server.js            # Servidor Express desta entrega
+├── package.json         # Dependências e scripts do projeto
+└── README.md            # Documentação do projeto e da API
 ```
 
-## Banco de dados
+## Como executar a API
 
-O arquivo `supabase/schema.sql` corresponde ao modelo fornecido para o projeto:
+### 1. Instale as dependências
 
-- `usuario`
-- `comprador`
-- `vendedor`
-- `produto`
-- `carrinho`
-- `item_carrinho`
-- `pedido`
-- `pedido_item`
-- `pagamento`
-- `entrega`
-
-O campo `produto` usado pelo front inclui exatamente os filtros existentes no schema: `tem_espinha`, `tipo_agua` e `unidade`.
-
-### Importante sobre peixes e iguarias
-
-O schema fornecido não possui uma coluna `categoria`. Por isso, esta versão não inventa uma coluna que não existe no seu banco. O marketplace pesquisa conjuntamente peixes e iguarias através de `nome`, `especie`, `descricao` e vendedor.
-
-## Instalação
+No terminal, dentro da pasta principal do repositório, execute:
 
 ```bash
 npm install
 ```
 
-Para desenvolver apenas o front:
+Esse comando lê o arquivo `package.json` e instala as dependências do projeto, incluindo o Express.
+
+### 2. Inicie o servidor
 
 ```bash
-npm run dev
+npm start
 ```
 
-Para executar o projeto completo com as Serverless Functions da Vercel localmente, use a CLI da Vercel:
-
-```bash
-npm run dev:vercel
-```
-
-## Configuração do Supabase
-
-O banco usado por esta versão é o banco descrito em `supabase/schema.sql`.
-
-Como o banco já foi criado, **não recrie as tabelas** caso elas já existam.
-
-Execute apenas uma vez o arquivo:
+Se tudo estiver correto, o terminal exibirá:
 
 ```text
-supabase/app.sql
+Servidor QUÉX rodando em http://localhost:3000
 ```
 
-Ele cria a função transacional usada pelo checkout:
+Para encerrar o servidor, pressione `Ctrl + C` no terminal.
+
+## Endpoints da API
+
+| VERBO | ENDPOINT (URL) | AÇÃO EXECUTADA |
+| --- | --- | --- |
+| GET | `/api/produtos` | Retorna uma lista mockada de pescados cadastrados. |
+| GET | `/api/produtos/:id` | Retorna um pescado específico pelo seu identificador. |
+| POST | `/api/produtos` | Cadastra um novo pescado na lista mockada. |
+
+### GET `/api/produtos`
+
+Retorna todos os produtos cadastrados na API em formato JSON.
+
+**URL completa para teste local:**
 
 ```text
-quex_finalizar_checkout
+http://localhost:3000/api/produtos
 ```
 
-O arquivo `supabase/hardening.sql` é opcional e adiciona RLS e índices. Ele é recomendado quando o sistema estiver exposto publicamente.
+**Status code retornado:**
 
-## Variáveis de ambiente
+| Status | Significado |
+| --- | --- |
+| `200 OK` | A lista de produtos foi retornada com sucesso. |
 
-O back-end da Vercel precisa destas variáveis:
+**Exemplo de resposta:**
 
-```env
-SUPABASE_URL=https://seu-projeto.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=sua_service_role_key
-VITE_SUPABASE_URL=https://seu-projeto.supabase.co
-VITE_SUPABASE_ANON_KEY=sua_anon_ou_publishable_key
-VITE_APP_NAME=QUÉX
+```json
+[
+  {
+    "id": 1,
+    "nome": "Tilápia fresca",
+    "preco": 28.9,
+    "vendedor": "Pesqueiro Mar Azul",
+    "especie": "Tilápia"
+  },
+  {
+    "id": 2,
+    "nome": "Robalo inteiro",
+    "preco": 54.5,
+    "vendedor": "Pescador João da Costa",
+    "especie": "Robalo"
+  }
+]
 ```
 
-### Segurança
+### GET `/api/produtos/:id`
 
-A `SUPABASE_SERVICE_ROLE_KEY` **nunca deve chegar ao navegador**. Ela só é usada pelas funções da pasta `api/`.
+Busca apenas um produto pelo seu identificador.
 
-O arquivo `.env` deste repositório é apenas um **template** e não possui credenciais reais. Não substitua esse conteúdo por uma service role key e faça commit dela no GitHub.
-
-Na Vercel, configure as variáveis em:
-
-`Project Settings → Environment Variables`
-
-Depois de alterar variáveis, faça um novo deploy para que o valor seja aplicado.
-
-## Autenticação
-
-A identidade (senha, Google, confirmação de e-mail, recuperação de senha) fica no **Supabase Auth**.
-A tabela `usuario` guarda os dados do QUÉX e aponta pro Supabase por `usuario.auth_user_id`.
-
-```
-Supabase Auth (auth.users)
-        │  auth_user_id
-        ▼
-     usuario ──┬── comprador
-               └── vendedor
-```
-
-- O navegador usa só a chave pública (anon) pra login/sessão e manda o token em `Authorization: Bearer`.
-- A API (`api/`) valida o token no Supabase e usa a service role pra ler/escrever no banco.
-- Cadastro novo nasce com `is_active = false` e só ativa depois de confirmar o e-mail.
-- Primeiro login com Google leva pra `/complete-profile` (CPF, telefone, localização, tipo de conta).
-- CPF/CNPJ são validados matematicamente no front, na API e no banco (`quex_cpf_valido` / `quex_cnpj_valido`).
-- Contas antigas (senha em `usuario.senha`) migram sozinhas no primeiro login (`api/auth/legacy-login.js`).
-
-## Fluxo do cadastro
-
-### Comprador
+**Exemplo:**
 
 ```text
-usuario
-  id
-  nome
-  email
-  senha
-  telefone
-  tipo = comprador
-      │
-      └── comprador
-          id = usuario.id
-          cpf
+http://localhost:3000/api/produtos/1
 ```
 
-### Vendedor
+| Status | Significado |
+| --- | --- |
+| `200 OK` | O produto foi encontrado e retornado em JSON. |
+| `404 Not Found` | Não existe produto com o id informado. |
+
+### POST `/api/produtos`
+
+Cadastra um novo pescado. A requisição deve ser enviada com o cabeçalho `Content-Type: application/json`.
+
+**URL:**
 
 ```text
-usuario
-  id
-  nome
-  email
-  senha
-  telefone
-  tipo = vendedor
-      │
-      └── vendedor
-          id = usuario.id
-          comercial
-          cpf_cnpj
-          localizacao
-          entrega_propria
+http://localhost:3000/api/produtos
 ```
 
-## Checkout
+**Corpo da requisição:**
 
-O checkout foi desenhado respeitando o schema atual. Como `entrega.pedido_id` é único e cada entrega possui um único `vendedor_id`, o QUÉX exige que um pedido contenha produtos de **um único vendedor**.
+```json
+{
+  "nome": "Salmão em posta",
+  "preco": 69.9,
+  "vendedor": "Peixaria do Porto",
+  "especie": "Salmão"
+}
+```
 
-Durante a finalização, a função SQL:
+| Status | Significado |
+| --- | --- |
+| `201 Created` | O produto foi cadastrado com sucesso. |
+| `400 Bad Request` | Algum campo obrigatório está ausente ou possui valor inválido. |
 
-1. bloqueia o carrinho;
-2. valida estoque e disponibilidade;
-3. calcula o valor total;
-4. cria o `pedido`;
-5. cria os `pedido_item`;
-6. cria o `pagamento` como pendente;
-7. cria a `entrega`;
-8. baixa o estoque;
-9. limpa os itens do carrinho.
+**Exemplo de resposta de sucesso:**
 
-Tudo isso acontece dentro de uma única transação PostgreSQL.
+```json
+{
+  "mensagem": "Produto cadastrado com sucesso.",
+  "produto": {
+    "id": 3,
+    "nome": "Salmão em posta",
+    "preco": 69.9,
+    "vendedor": "Peixaria do Porto",
+    "especie": "Salmão"
+  }
+}
+```
 
-## Pagamentos
+## Como testar
 
-O schema possui a tabela `pagamento`, mas não existe gateway de pagamento integrado. O QUÉX registra a forma escolhida (`pix`, `cartao` ou `dinheiro`) como `pendente`.
-
-Para cobrança real, seria necessário integrar um provedor de pagamentos separado.
-
-## Deploy na Vercel
-
-1. Faça push deste projeto para o GitHub.
-2. Importe o repositório na Vercel.
-3. Deixe o framework como Vite ou configure o build como `npm run build`.
-4. Defina `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` em **Environment Variables**.
-5. Faça o deploy.
-
-O `vercel.json` já mantém o fallback para o React Router e define o diretório `dist` como saída do build.
-
-## Observação sobre `.env` na Vercel
-
-O arquivo `.env` está incluído neste pacote somente como modelo porque você pediu que ele existisse no repositório. **Não use o GitHub como mecanismo para armazenar a service role key.** A Vercel recomenda configurar segredos nas variáveis de ambiente do próprio projeto; o `.env` local pode ser obtido depois com `vercel env pull`.
-
-## Status
-
-O projeto está preparado para a arquitetura:
+Para testar o `GET`, deixe o servidor em execução e abra no navegador:
 
 ```text
-GitHub
-   ↓
-Vercel
-   ├── React/Vite
-   └── Serverless API
-          ↓
-      Supabase REST
-          ↓
-     PostgreSQL
+http://localhost:3000/api/produtos
 ```
+
+Para testar o `POST`, use o Postman:
+
+1. Selecione o método `POST`.
+2. Informe a URL `http://localhost:3000/api/produtos`.
+3. Em **Body**, selecione **raw** e depois **JSON**.
+4. Cole o exemplo de JSON desta documentação.
+5. Clique em **Send** e confira o status `201 Created`.
+
+## Observação
+
+Nesta primeira versão, os produtos ficam armazenados apenas em memória. Portanto, os produtos cadastrados por `POST` deixam de existir quando o servidor é reiniciado. A integração com banco de dados será uma evolução futura do back-end.
+
+## Versionamento
+
+O projeto é versionado no GitHub. Cada integrante realizou commits com a própria conta para registrar sua participação no desenvolvimento do QUÉX.
