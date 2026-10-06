@@ -1,13 +1,10 @@
-const express = require("express");
+import express from "express";
 
 const app = express();
 const PORTA = process.env.PORT || 3000;
 
-// Faz o Express entender corpos de requisição enviados em JSON.
 app.use(express.json());
 
-// Dados temporários (mock) para a primeira versão da API.
-// Em uma próxima etapa, esta lista será substituída pelo banco de dados.
 const produtos = [
   {
     id: 1,
@@ -25,12 +22,10 @@ const produtos = [
   }
 ];
 
-// GET /api/produtos - lista todos os produtos cadastrados.
 app.get("/api/produtos", (requisicao, resposta) => {
   return resposta.status(200).json(produtos);
 });
 
-// GET /api/produtos/:id - busca um produto pelo seu identificador.
 app.get("/api/produtos/:id", (requisicao, resposta) => {
   const id = Number(requisicao.params.id);
   const produto = produtos.find((item) => item.id === id);
@@ -44,11 +39,9 @@ app.get("/api/produtos/:id", (requisicao, resposta) => {
   return resposta.status(200).json(produto);
 });
 
-// POST /api/produtos - cadastra um novo produto na lista mockada.
 app.post("/api/produtos", (requisicao, resposta) => {
   const { nome, preco, vendedor, especie } = requisicao.body;
 
-  // Valida os campos obrigatórios antes de cadastrar.
   if (!nome || !preco || !vendedor || !especie) {
     return resposta.status(400).json({
       mensagem: "Os campos nome, preco, vendedor e especie são obrigatórios."
