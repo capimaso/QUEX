@@ -18,8 +18,15 @@ import {
 import {
   normalizeSearchTerm,
 } from './_lib/text.js'
+import {
+  buildSellerRelevance,
+  sortByRelevance,
+} from './_lib/relevance.js'
 
-function mapPerson(row) {
+function mapPerson(
+  row,
+  relevance = null
+) {
   return {
     id: Number(row.id),
     role:
@@ -38,7 +45,12 @@ function mapPerson(row) {
         : '',
     bio: row.bio || '',
     localizacao:
-      row.localizacao || '',
+      row.cidade && row.uf
+        ? `${row.cidade} - ${row.uf}`
+        : '',
+    cidade:
+      row.cidade || '',
+    uf: row.uf || '',
     foto_url: avatarUrl(
       row.foto_perfil
     ),
@@ -51,6 +63,20 @@ function mapPerson(row) {
         row.total || 0
       ),
     },
+    relevance_score:
+      Number(
+        relevance?.score || 0
+      ),
+    proximity_factor:
+      Number(
+        relevance?.proximity ||
+          1
+      ),
+    completed_sales:
+      Number(
+        relevance
+          ?.completedSales || 0
+      ),
   }
 }
 
@@ -150,6 +176,10 @@ export default async function handler(
         60
       )
 
+    const nearMe =
+      req.query?.near_me ===
+      'true'
+
     const limit =
       Math.min(
         Math.max(
@@ -187,21 +217,51 @@ export default async function handler(
       )
     }
 
-    const order =
-      'order=media.desc.nullslast,total.desc,nome_exibicao.asc'
-
     const rows =
       await supabaseRequest(
-        `/perfil_publico?select=*&${conditions.join('&')}&${order}&limit=${limit}&offset=${offset}`
+        `/perfil_publico?select=*&${conditions.join('&')}`
+      )
+
+    const sellerIds =
+      (rows || []).map(
+        row => Number(row.id)
+      )
+
+    const relevance =
+      await buildSellerRelevance(
+        sellerIds,
+        viewer,
+        nearMe
+      )
+
+    let sorted =
+      sortByRelevance(
+        rows || [],
+        relevance,
+        row => row.id,
+        nearMe
+      )
+
+    sorted =
+      sorted.slice(
+        offset,
+        offset + limit
       )
 
     return ok(res, {
       people:
-        (rows || []).map(
-          mapPerson
+        sorted.map(row =>
+          mapPerson(
+            row,
+            relevance.get(
+              Number(row.id)
+            )
+          )
         ),
       limit,
       offset,
+      total:
+        (rows || []).length,
     })
   } catch (error) {
     return serverError(

@@ -7,9 +7,7 @@ import {
   Waves,
 } from 'lucide-react'
 import { Badge } from '@/components/ui'
-import {
-  fallbackImage,
-} from '@/api/data'
+import { fallbackImage } from '@/api/data'
 
 const unitLabel = unit =>
   unit === 'unidade'
@@ -21,6 +19,12 @@ const unitLabel = unit =>
 export default function ProductCard({
   product,
 }) {
+  const currentPrice =
+    Number(
+      product.effective_price ??
+        product.price
+    )
+
   return (
     <Link
       to={`/product/${product.id}`}
@@ -56,6 +60,12 @@ export default function ProductCard({
               {product.species}
             </Badge>
           )}
+
+          {product.promotion_active && (
+            <Badge className="bg-[#F2541B] text-white">
+              {product.discount_percent}% OFF
+            </Badge>
+          )}
         </div>
       </div>
 
@@ -88,16 +98,24 @@ export default function ProductCard({
 
         <div className="flex items-end justify-between gap-3 pt-1">
           <div>
-            <span className="text-xl font-bold text-[#0D1273]">
-              R${' '}
-              {product.price.toFixed(2)}
+            {product.promotion_active && (
+              <div className="text-xs text-gray-400 line-through">
+                R$ {Number(product.price).toFixed(2)}
+              </div>
+            )}
+
+            <span
+              className={`text-xl font-bold ${
+                product.promotion_active
+                  ? 'text-[#F2541B]'
+                  : 'text-[#0D1273]'
+              }`}
+            >
+              R$ {currentPrice.toFixed(2)}
             </span>
 
             <span className="ml-1 text-xs text-gray-400">
-              /
-              {unitLabel(
-                product.unit
-              )}
+              /{unitLabel(product.unit)}
             </span>
           </div>
 

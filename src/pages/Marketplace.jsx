@@ -6,6 +6,7 @@ import React, {
 import {
   Bone,
   Fish,
+  MapPinned,
   Search,
   SlidersHorizontal,
   Waves,
@@ -20,8 +21,11 @@ import {
   Select,
 } from '@/components/ui'
 import { listProducts } from '@/api/data'
+import { useAuth } from '@/lib/AuthContext'
 
 export default function Marketplace() {
+  const { user } = useAuth()
+
   const [products, setProducts] =
     useState([])
   const [loading, setLoading] =
@@ -41,58 +45,81 @@ export default function Marketplace() {
     setWaterFilter,
   ] = useState('')
   const [sortBy, setSortBy] =
-    useState('newest')
+    useState('relevance')
   const [
     showFilters,
     setShowFilters,
   ] = useState(false)
+  const [nearMe, setNearMe] =
+    useState(false)
+
+  const canUseNearMe =
+    Boolean(
+      user?.cidade &&
+      user?.uf
+    )
 
   useEffect(() => {
     let active = true
-
     setLoading(true)
 
-    const timer = window.setTimeout(
-      () => {
-        listProducts({
-          search,
-        })
-          .then(list => {
-            if (active) {
-              setProducts(list)
-            }
+    const timer =
+      window.setTimeout(
+        () => {
+          listProducts({
+            search,
+            nearMe:
+              nearMe &&
+              canUseNearMe,
           })
-          .catch(error => {
-            console.error(
-              '[QUÉX] Erro na busca de produtos:',
-              error
-            )
-          })
-          .finally(() => {
-            if (active) {
-              setLoading(false)
-            }
-          })
-      },
-      search.trim() ? 250 : 0
-    )
+            .then(list => {
+              if (active) {
+                setProducts(list)
+              }
+            })
+            .catch(error => {
+              console.error(
+                '[QUÉX] Erro na busca de produtos:',
+                error
+              )
+            })
+            .finally(() => {
+              if (active) {
+                setLoading(false)
+              }
+            })
+        },
+        search.trim()
+          ? 250
+          : 0
+      )
 
     return () => {
       active = false
       window.clearTimeout(timer)
     }
-  }, [search])
+  }, [
+    search,
+    nearMe,
+    canUseNearMe,
+  ])
 
   const species = useMemo(
     () =>
       [
         ...new Set(
           products
-            .map(product => product.species)
+            .map(
+              product =>
+                product.species
+            )
             .filter(Boolean)
         ),
       ].sort((a, b) =>
-        a.localeCompare(b, 'pt-BR')
+        a.localeCompare(
+          b,
+          'pt-BR'
+        )
       ),
     [products]
   )
@@ -103,15 +130,17 @@ export default function Marketplace() {
         .filter(product => {
           if (
             speciesFilter &&
-            product.species !== speciesFilter
+            product.species !==
+              speciesFilter
           ) {
             return false
           }
 
           if (
             boneFilter &&
-            String(product.has_bones) !==
-              boneFilter
+            String(
+              product.has_bones
+            ) !== boneFilter
           ) {
             return false
           }
@@ -127,15 +156,50 @@ export default function Marketplace() {
           return true
         })
         .sort((a, b) => {
-          if (sortBy === 'price_asc') {
-            return a.price - b.price
+          if (
+            sortBy ===
+            'price_asc'
+          ) {
+            return (
+              Number(
+                a.effective_price ??
+                  a.price
+              ) -
+              Number(
+                b.effective_price ??
+                  b.price
+              )
+            )
           }
 
-          if (sortBy === 'price_desc') {
-            return b.price - a.price
+          if (
+            sortBy ===
+            'price_desc'
+          ) {
+            return (
+              Number(
+                b.effective_price ??
+                  b.price
+              ) -
+              Number(
+                a.effective_price ??
+                  a.price
+              )
+            )
           }
 
-          return b.id - a.id
+          if (
+            sortBy ===
+            'newest'
+          ) {
+            return b.id - a.id
+          }
+
+          /*
+            relevance:
+            mantém exatamente a ordem calculada pelo backend.
+          */
+          return 0
         }),
     [
       products,
@@ -151,7 +215,8 @@ export default function Marketplace() {
     setSpeciesFilter('')
     setBoneFilter('')
     setWaterFilter('')
-    setSortBy('newest')
+    setSortBy('relevance')
+    setNearMe(false)
   }
 
   const hasFilters = Boolean(
@@ -159,8 +224,20 @@ export default function Marketplace() {
       speciesFilter ||
       boneFilter ||
       waterFilter ||
-      sortBy !== 'newest'
+      nearMe ||
+      sortBy !== 'relevance'
   )
+
+  const toggleNearMe = () => {
+    if (!canUseNearMe) {
+      return
+    }
+
+    setNearMe(
+      value => !value
+    )
+    setSortBy('relevance')
+  }
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
@@ -170,7 +247,7 @@ export default function Marketplace() {
         </h1>
 
         <p className="mt-1 text-gray-500">
-          Pesquise peixes e iguarias frescas anunciadas pelos vendedores
+          Os resultados começam pelos anúncios mais relevantes para você.
         </p>
       </div>
 
@@ -182,20 +259,54 @@ export default function Marketplace() {
           placeholder="Buscar peixe, iguaria, espécie ou vendedor..."
           value={search}
           onChange={event =>
-            setSearch(event.target.value)
+            setSearch(
+              event.target.value
+            )
           }
         />
 
         <Button
+          variant={
+            nearMe
+              ? 'primary'
+              : 'outline'
+          }
+          onClick={toggleNearMe}
+          disabled={!canUseNearMe}
+          title={
+            canUseNearMe
+              ? 'Priorizar vendedores da sua cidade'
+              : 'Cadastre cidade e UF no seu perfil para usar este filtro'
+          }
+        >
+          <MapPinned className="mr-2 h-4 w-4" />
+          Perto de mim
+        </Button>
+
+        <Button
           variant="outline"
           onClick={() =>
-            setShowFilters(value => !value)
+            setShowFilters(
+              value => !value
+            )
           }
         >
           <SlidersHorizontal className="mr-2 h-4 w-4" />
           Filtros
         </Button>
       </div>
+
+      {nearMe &&
+        canUseNearMe && (
+          <div className="mb-4 rounded-xl bg-[#5A5FBF]/10 px-4 py-3 text-sm text-[#0D1273]">
+            Priorizando anúncios de{' '}
+            <strong>
+              {user.cidade} -{' '}
+              {user.uf}
+            </strong>
+            .
+          </div>
+        )}
 
       {showFilters && (
         <div className="mb-6 grid grid-cols-1 items-end gap-4 rounded-2xl border border-gray-100 bg-white p-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -205,14 +316,19 @@ export default function Marketplace() {
             </label>
 
             <Select
-              value={speciesFilter}
+              value={
+                speciesFilter
+              }
               onChange={event =>
                 setSpeciesFilter(
                   event.target.value
                 )
               }
             >
-              <option value="">Todas</option>
+              <option value="">
+                Todas
+              </option>
+
               {species.map(item => (
                 <option
                   key={item}
@@ -286,7 +402,11 @@ export default function Marketplace() {
                   event.target.value
                 )
               }
+              disabled={nearMe}
             >
+              <option value="relevance">
+                Mais relevantes
+              </option>
               <option value="newest">
                 Mais recentes
               </option>
@@ -323,7 +443,8 @@ export default function Marketplace() {
           {waterFilter && (
             <Badge className="bg-[#0D1273]/5 text-[#0D1273]">
               <Waves className="mr-1 h-3 w-3" />
-              {waterFilter === 'doce'
+              {waterFilter ===
+              'doce'
                 ? 'Água doce'
                 : 'Água salgada'}
             </Badge>
@@ -351,19 +472,28 @@ export default function Marketplace() {
       ) : (
         <>
           <p className="mb-4 text-sm text-gray-400">
-            {filtered.length} produto
-            {filtered.length !== 1 ? 's' : ''}{' '}
+            {filtered.length}{' '}
+            produto
+            {filtered.length !== 1
+              ? 's'
+              : ''}{' '}
             encontrado
-            {filtered.length !== 1 ? 's' : ''}
+            {filtered.length !== 1
+              ? 's'
+              : ''}
           </p>
 
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {filtered.map(product => (
-              <ProductCard
-                key={product.id}
-                product={product}
-              />
-            ))}
+            {filtered.map(
+              product => (
+                <ProductCard
+                  key={product.id}
+                  product={
+                    product
+                  }
+                />
+              )
+            )}
           </div>
         </>
       )}

@@ -29,6 +29,15 @@ import {
   normalizeSearchTerm,
   normalizeText,
 } from './_lib/text.js'
+import {
+  activePromotion,
+  effectivePrice,
+  promotionPayload,
+} from './_lib/pricing.js'
+import {
+  buildSellerRelevance,
+  sortByRelevance,
+} from './_lib/relevance.js'
 
 const fallbackImage =
   'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=900&h=680&fit=crop'
@@ -37,8 +46,7 @@ const cleanText = value =>
   String(value ?? '').trim()
 
 function normalizeUnit(value) {
-  const normalized =
-    normalizeText(value)
+  const normalized = normalizeText(value)
 
   if (
     normalized === 'unit' ||
@@ -65,15 +73,36 @@ function mapProduct(
   const photoRefs =
     parsePhotoRefs(row.fotos_url)
 
-  const photos = photoRefs.map(
-    ref => ({
-      ref,
-      url: photoUrl(ref),
-    })
-  )
+  const photos = photoRefs.map(ref => ({
+    ref,
+    url: photoUrl(ref),
+  }))
 
   const images =
     photoRefs.map(photoUrl)
+
+  const promotionActive =
+    activePromotion(row)
+
+  const promotionalPrice =
+    promotionActive
+      ? Number(
+          row.preco_promocional
+        )
+      : null
+
+  const originalPrice =
+    Number(row.preco || 0)
+
+  const discountPercent =
+    promotionActive
+      ? Math.round(
+          ((originalPrice -
+            promotionalPrice) /
+            originalPrice) *
+            100
+        )
+      : 0
 
   return {
     id: Number(row.id),
@@ -84,15 +113,28 @@ function mapProduct(
       seller?.comercial ||
       sellerUser?.nome ||
       'Pescador local',
-    seller_email:
-      sellerUser?.email || '',
+    seller_location:
+      sellerUser?.cidade &&
+      sellerUser?.uf
+        ? `${sellerUser.cidade} - ${sellerUser.uf}`
+        : '',
     name: row.nome || '',
     species: row.especie || '',
     description:
       row.descricao || '',
-    price: Number(
-      row.preco || 0
-    ),
+    price: originalPrice,
+    promotional_price:
+      promotionalPrice,
+    promotion_expires_at:
+      promotionActive
+        ? row.promocao_expira_em
+        : null,
+    promotion_active:
+      promotionActive,
+    effective_price:
+      effectivePrice(row),
+    discount_percent:
+      discountPercent,
     quantity: Number(
       row.quantidade || 0
     ),
@@ -134,29 +176,33 @@ async function decorateProducts(rows) {
 
   const sellers = ids.length
     ? await supabaseRequest(
-        `/vendedor?select=id,comercial,entrega_propria,localizacao&${idFilter}`
+        `/vendedor?select=id,comercial,entrega_propria&${idFilter}`
       )
     : []
 
   const users = ids.length
     ? await supabaseRequest(
-        `/usuario?select=id,nome,email&${idFilter}`
+        `/usuario?select=id,nome,cidade,uf&${idFilter}`
       )
     : []
 
-  const sellerMap = new Map(
-    (sellers || []).map(seller => [
-      Number(seller.id),
-      seller,
-    ])
-  )
+  const sellerMap =
+    new Map(
+      (sellers || []).map(
+        seller => [
+          Number(seller.id),
+          seller,
+        ]
+      )
+    )
 
-  const userMap = new Map(
-    (users || []).map(user => [
-      Number(user.id),
-      user,
-    ])
-  )
+  const userMap =
+    new Map(
+      (users || []).map(user => [
+        Number(user.id),
+        user,
+      ])
+    )
 
   return rows.map(row =>
     mapProduct(
@@ -226,14 +272,14 @@ export default async function handler(
 
     if (req.method === 'GET') {
       const id = req.query?.id
-
       let activeOnly =
         req.query?.active !==
         'false'
-
       const sellerId =
         req.query?.seller_id
-
+      const nearMe =
+        req.query?.near_me ===
+        'true'
       const search =
         normalizeSearchTerm(
           req.query?.search,
@@ -242,14 +288,14 @@ export default async function handler(
 
       let viewer = null
 
-      if (!activeOnly) {
-        try {
-          viewer =
-            await requireUser(req)
-        } catch {
-          viewer = null
-        }
+      try {
+        viewer =
+          await requireUser(req)
+      } catch {
+        viewer = null
+      }
 
+      if (!activeOnly) {
         if (
           viewer?.tipo !==
           'vendedor'
@@ -270,6 +316,20 @@ export default async function handler(
       }
 
       const conditions = []
+
+      /*
+        Consulta privada (active=false) é sempre limitada à própria loja,
+        mesmo quando o cliente tenta informar apenas ?id=.
+      */
+      if (
+        !activeOnly &&
+        viewer?.tipo ===
+          'vendedor'
+      ) {
+        conditions.push(
+          `vendedor_id=eq.${encodeURIComponent(viewer.id)}`
+        )
+      }
 
       if (id) {
         conditions.push(
@@ -306,13 +366,12 @@ export default async function handler(
         try {
           rows =
             await supabaseRequest(
-              `/produto_busca?select=*&order=id.desc${query}`
+              `/produto_busca_v2?select=*&order=id.desc${query}`
             )
-
           usedSearchView = true
         } catch (error) {
           console.warn(
-            '[QUÉX] produto_busca indisponível; usando fallback normalizado em memória.',
+            '[QUÉX] produto_busca_v2 indisponível; usando fallback em memória.',
             error?.message || error
           )
 
@@ -372,6 +431,59 @@ export default async function handler(
         })
       }
 
+      const sellerIds =
+        products.map(
+          product =>
+            product.seller_id
+        )
+
+      const relevance =
+        await buildSellerRelevance(
+          sellerIds,
+          viewer,
+          nearMe
+        )
+
+      products = products.map(
+        product => {
+          const info =
+            relevance.get(
+              product.seller_id
+            )
+
+          return {
+            ...product,
+            relevance_score:
+              Number(
+                info?.score || 0
+              ),
+            proximity_factor:
+              Number(
+                info?.proximity ||
+                  1
+              ),
+            completed_sales:
+              Number(
+                info?.completedSales ||
+                  0
+              ),
+            seller_rating:
+              Number(
+                info?.rating || 0
+              ),
+          }
+        }
+      )
+
+      products =
+        sortByRelevance(
+          products,
+          relevance,
+          product =>
+            product.seller_id,
+          nearMe
+        )
+
       return ok(res, {
         products,
       })
@@ -413,16 +525,12 @@ export default async function handler(
 
       const body =
         readBody(req)
-
       const name =
         cleanText(body.name)
-
       const price =
         Number(body.price)
-
       const quantity =
         Number(body.quantity)
-
       const waterType =
         cleanText(
           body.water_type
@@ -504,12 +612,24 @@ export default async function handler(
       }
 
       if (
-        String(body.name).length >
-        150
+        name.length > 150
       ) {
         return badRequest(
           res,
           'O nome do produto é muito longo.'
+        )
+      }
+
+      const promotion =
+        promotionPayload(
+          body,
+          price
+        )
+
+      if (promotion.error) {
+        return badRequest(
+          res,
+          promotion.error
         )
       }
 
@@ -548,6 +668,7 @@ export default async function handler(
               normalizeUnit(
                 body.unit
               ),
+            ...promotion,
           }
         )
 
@@ -558,9 +679,7 @@ export default async function handler(
 
       return res
         .status(201)
-        .json({
-          product,
-        })
+        .json({ product })
     }
 
     if (req.method === 'PATCH') {
@@ -599,7 +718,6 @@ export default async function handler(
 
       const body =
         readBody(req)
-
       const payload = {}
 
       if (
@@ -789,6 +907,41 @@ export default async function handler(
         return badRequest(
           res,
           'Informe o nome do produto.'
+        )
+      }
+
+      const promotionWasSent =
+        [
+          'promotion_enabled',
+          'promotional_price',
+          'promotion_expires_at',
+        ].some(key =>
+          Object.prototype.hasOwnProperty.call(
+            body,
+            key
+          )
+        )
+
+      if (promotionWasSent) {
+        const promotion =
+          promotionPayload(
+            body,
+            payload.preco !==
+              undefined
+              ? payload.preco
+              : owned.preco
+          )
+
+        if (promotion.error) {
+          return badRequest(
+            res,
+            promotion.error
+          )
+        }
+
+        Object.assign(
+          payload,
+          promotion
         )
       }
 

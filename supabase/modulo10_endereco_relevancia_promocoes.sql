@@ -1,15 +1,240 @@
--- =====================================================
--- QUÉX - COMPLEMENTO DO BANCO EXISTENTE
--- Versão atualizada pelo Módulo 10
--- =====================================================
--- Este arquivo NÃO recria tabelas.
--- A função de checkout abaixo usa preço promocional somente
--- enquanto a promoção estiver ativa e volta automaticamente
--- ao preço original após a expiração.
+-- ============================================================
+-- QUÉX - MÓDULO 10
+-- Endereço completo, relevância e promoções
+-- ============================================================
+-- Idempotente e compatível com o banco existente.
+-- Não apaga dados nem remove tabelas existentes.
 --
--- Regra de segurança:
--- execução sensível somente pela service_role usada na API.
--- =====================================================
+-- Execute UMA VEZ no Supabase:
+-- SQL Editor -> New query -> cole tudo -> Run
+-- ============================================================
+
+begin;
+
+create extension if not exists unaccent
+  with schema extensions;
+
+-- ------------------------------------------------------------
+-- 1. ENDEREÇO COMPLETO
+-- ------------------------------------------------------------
+
+alter table public.usuario
+  add column if not exists cep varchar(8),
+  add column if not exists numero varchar(30),
+  add column if not exists complemento varchar(120),
+  add column if not exists cidade varchar(120),
+  add column if not exists uf varchar(2);
+
+do $$
+begin
+  if not exists (
+    select 1
+      from pg_constraint
+     where conname = 'chk_usuario_cep_mod10'
+       and conrelid = 'public.usuario'::regclass
+  ) then
+    alter table public.usuario
+      add constraint chk_usuario_cep_mod10
+      check (
+        cep is null
+        or cep ~ '^[0-9]{8}$'
+      );
+  end if;
+
+  if not exists (
+    select 1
+      from pg_constraint
+     where conname = 'chk_usuario_numero_mod10'
+       and conrelid = 'public.usuario'::regclass
+  ) then
+    alter table public.usuario
+      add constraint chk_usuario_numero_mod10
+      check (
+        numero is null
+        or btrim(numero) <> ''
+      );
+  end if;
+
+  if not exists (
+    select 1
+      from pg_constraint
+     where conname = 'chk_usuario_uf_mod10'
+       and conrelid = 'public.usuario'::regclass
+  ) then
+    alter table public.usuario
+      add constraint chk_usuario_uf_mod10
+      check (
+        uf is null
+        or uf ~ '^[A-Z]{2}$'
+      );
+  end if;
+
+  if not exists (
+    select 1
+      from pg_constraint
+     where conname = 'chk_usuario_endereco_completo_mod10'
+       and conrelid = 'public.usuario'::regclass
+  ) then
+    alter table public.usuario
+      add constraint chk_usuario_endereco_completo_mod10
+      check (
+        cep is null
+        or (
+          numero is not null
+          and btrim(numero) <> ''
+          and cidade is not null
+          and btrim(cidade) <> ''
+          and uf is not null
+          and uf ~ '^[A-Z]{2}$'
+        )
+      );
+  end if;
+end
+$$;
+
+create index if not exists ix_usuario_cidade_uf
+  on public.usuario (uf, cidade);
+
+-- A view pública mostra SOMENTE cidade e UF.
+-- CEP, número, complemento e endereco NÃO entram nela.
+create or replace view public.perfil_publico as
+select
+  u.id,
+  u.tipo,
+  u.nome,
+  nullif(btrim(v.comercial), '') as comercial,
+  coalesce(
+    nullif(btrim(v.comercial), ''),
+    u.nome
+  ) as nome_exibicao,
+  u.bio,
+  u.foto_perfil,
+  case
+    when coalesce(btrim(u.cidade), '') <> ''
+     and coalesce(btrim(u.uf), '') <> ''
+    then btrim(u.cidade) || ' - ' || upper(btrim(u.uf))
+    else null::text
+  end as localizacao,
+  r.media,
+  coalesce(r.total, 0) as total,
+  lower(
+    extensions.unaccent(
+      concat_ws(' ', u.nome, v.comercial)
+    )
+  ) as nome_busca,
+  lower(
+    extensions.unaccent(
+      concat_ws(' ', u.cidade, u.uf)
+    )
+  ) as local_busca,
+  u.cidade,
+  u.uf
+from public.usuario u
+left join public.vendedor v
+  on v.id = u.id
+left join public.avaliacao_resumo r
+  on r.usuario_id = u.id
+where u.is_active
+  and u.tipo in ('comprador', 'vendedor');
+
+revoke all
+  on public.perfil_publico
+  from anon, authenticated;
+
+grant select
+  on public.perfil_publico
+  to service_role;
+
+-- ------------------------------------------------------------
+-- 2. PROMOÇÕES
+-- ------------------------------------------------------------
+
+alter table public.produto
+  add column if not exists preco_promocional numeric(10,2),
+  add column if not exists promocao_expira_em timestamptz;
+
+do $$
+begin
+  if not exists (
+    select 1
+      from pg_constraint
+     where conname = 'chk_produto_promocao_mod10'
+       and conrelid = 'public.produto'::regclass
+  ) then
+    alter table public.produto
+      add constraint chk_produto_promocao_mod10
+      check (
+        (
+          preco_promocional is null
+          and promocao_expira_em is null
+        )
+        or
+        (
+          preco_promocional is not null
+          and promocao_expira_em is not null
+          and preco_promocional > 0
+          and preco_promocional < preco
+        )
+      );
+  end if;
+end
+$$;
+
+create index if not exists ix_produto_promocao_expira
+  on public.produto (promocao_expira_em)
+  where preco_promocional is not null;
+
+-- Nova view de busca. Mantemos produto_busca antiga intacta
+-- para não quebrar instalações anteriores do Módulo 9.
+create or replace view public.produto_busca_v2 as
+select
+  p.id,
+  p.vendedor_id,
+  p.nome,
+  p.preco,
+  p.descricao,
+  p.quantidade,
+  p.fotos_url,
+  p.especie,
+  p.ativo,
+  p.tem_espinha,
+  p.tipo_agua,
+  p.unidade,
+  p.especie_id,
+  p.preco_promocional,
+  p.promocao_expira_em,
+  lower(
+    extensions.unaccent(
+      concat_ws(
+        ' ',
+        p.nome,
+        p.especie,
+        p.descricao,
+        v.comercial,
+        u.nome
+      )
+    )
+  ) as busca_normalizada
+from public.produto p
+left join public.vendedor v
+  on v.id = p.vendedor_id
+left join public.usuario u
+  on u.id = p.vendedor_id;
+
+revoke all
+  on public.produto_busca_v2
+  from anon, authenticated;
+
+grant select
+  on public.produto_busca_v2
+  to service_role;
+
+-- ------------------------------------------------------------
+-- 3. CHECKOUT COM PREÇO PROMOCIONAL
+-- ------------------------------------------------------------
+-- O preço é revalidado no momento da compra.
+-- Promoção expirada volta automaticamente ao preço original.
+-- A função continua sendo chamada SOMENTE pela API serverless.
 
 create or replace function public.quex_finalizar_checkout(
     p_comprador_id integer,
@@ -247,3 +472,5 @@ revoke execute
 grant execute
   on function public.quex_finalizar_checkout(integer, varchar, varchar)
   to service_role;
+
+commit;

@@ -2,9 +2,6 @@ import { selectOne, updateOne } from './db.js'
 import { getAuthUser } from './supabaseAuth.js'
 import { avatarUrl } from './storage.js'
 
-// A identidade (senha, Google, confirmação de e-mail) vive no Supabase Auth.
-// A tabela `usuario` guarda os dados do QUÉX e aponta pro Supabase via auth_user_id.
-
 export function getBearerToken(req) {
   const header = req.headers?.authorization || req.headers?.Authorization || ''
   const match = /^Bearer\s+(.+)$/i.exec(header)
@@ -23,7 +20,6 @@ export async function resolveAccount(req) {
     `auth_user_id=eq.${encodeURIComponent(authUser.id)}`
   )
 
-  // Conta antiga: só vincula automaticamente se NÃO estiver banida.
   if (!usuario && confirmed && authUser.email) {
     const legado = await selectOne(
       'usuario',
@@ -42,8 +38,6 @@ export async function resolveAccount(req) {
     }
   }
 
-  // Segurança extra caso o trigger de confirmação não tenha rodado.
-  // Conta banida NUNCA é reativada automaticamente.
   if (
     usuario &&
     !usuario.is_active &&
@@ -95,9 +89,17 @@ export function publicUser(user, extras = {}) {
     full_name: user.nome,
     phone: user.telefone || '',
     address: user.endereco || '',
+    cep: user.cep || '',
+    numero: user.numero || '',
+    complemento: user.complemento || '',
+    cidade: user.cidade || '',
+    uf: user.uf || '',
     birth_date: user.data_nasc || null,
     bio: user.bio || '',
-    localizacao: user.localizacao || '',
+    localizacao:
+      user.cidade && user.uf
+        ? `${user.cidade} - ${user.uf}`
+        : user.localizacao || '',
     foto_perfil: user.foto_perfil || '',
     foto_url: avatarUrl(user.foto_perfil),
     role: user.tipo === 'vendedor' ? 'seller' : 'buyer',
@@ -119,10 +121,6 @@ export async function buildPublicUser(user, extras = {}) {
     detail = {
       cpf_cnpj: seller?.cpf_cnpj || '',
       business_name: seller?.comercial || '',
-      localizacao:
-        user.localizacao ||
-        seller?.localizacao ||
-        '',
       entrega_propria: Boolean(seller?.entrega_propria),
     }
   } else {
