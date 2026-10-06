@@ -15,6 +15,7 @@ import AppLayout from '@/components/layout/AppLayout'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import AdminRoute from '@/components/AdminRoute'
 import SupportWidget from '@/components/SupportWidget'
+import LoadingFish from '@/components/LoadingFish'
 import Login from '@/pages/Login'
 import Register from '@/pages/Register'
 import ClaimCpf from '@/pages/ClaimCpf'
@@ -45,9 +46,11 @@ function Gate() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-white">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#5A5FBF]/20 border-t-[#0D1273]" />
-      </div>
+      <LoadingFish
+        fullscreen
+        size="lg"
+        label="Preparando o QUÉX..."
+      />
     )
   }
 
@@ -144,23 +147,17 @@ function Gate() {
           <Route element={<AdminRoute />}>
             <Route
               path="/admin"
-              element={
-                <AdminDashboard />
-              }
+              element={<AdminDashboard />}
             />
           </Route>
 
           <Route
             path="/seller/dashboard"
-            element={
-              <SellerDashboard />
-            }
+            element={<SellerDashboard />}
           />
           <Route
             path="/seller/product/:id"
-            element={
-              <ProductForm />
-            }
+            element={<ProductForm />}
           />
         </Route>
       </Route>

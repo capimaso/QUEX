@@ -1,12 +1,192 @@
-import React, { useEffect, useState } from 'react'
+import React, {
+  useEffect,
+  useState,
+} from 'react'
 import { Link } from 'react-router-dom'
-import { Fish, ShoppingBag, Truck, ArrowRight } from 'lucide-react'
+import {
+  ArrowRight,
+  Fish,
+  ShoppingBag,
+  Truck,
+} from 'lucide-react'
 import ProductCard from '@/components/products/ProductCard'
+import LoadingFish from '@/components/LoadingFish'
+import ParallaxHero from '@/components/ParallaxHero'
 import { listProducts } from '@/api/data'
 
+const BENEFITS = [
+  {
+    icon: Fish,
+    title: 'Pescado do Dia',
+    desc:
+      'Peixes e iguarias anunciados por vendedores locais, com informações claras sobre o produto.',
+  },
+  {
+    icon: ShoppingBag,
+    title: 'Preço Direto',
+    desc:
+      'Veja o valor do anúncio e compre diretamente de quem vende o pescado.',
+  },
+  {
+    icon: Truck,
+    title: 'Entrega em Casa',
+    desc:
+      'Informe seu endereço no checkout e acompanhe o andamento do pedido.',
+  },
+]
+
 export default function Home() {
-  const [featured, setFeatured] = useState([])
-  const [loading, setLoading] = useState(true)
-  useEffect(() => { listProducts().then(setFeatured).catch(console.error).finally(() => setLoading(false)) }, [])
-  return <div className="min-h-screen"><section className="relative overflow-hidden bg-[#0D1273] text-white"><div className="absolute inset-0 opacity-25"><div className="absolute top-0 right-0 w-96 h-96 rounded-full bg-gradient-to-br from-[#F29E38] to-[#F2541B] blur-3xl -translate-y-1/2 translate-x-1/3" /><div className="absolute bottom-0 left-0 w-80 h-80 rounded-full bg-gradient-to-br from-[#5A5FBF] to-[#0D1273] blur-3xl translate-y-1/3 -translate-x-1/4" /></div><div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 md:py-32"><div className="max-w-2xl space-y-6"><div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 backdrop-blur-sm text-sm"><Fish className="w-4 h-4" /><span>Pescado fresco, direto do mar para sua mesa</span></div><h1 className="text-4xl md:text-6xl font-heading font-bold leading-tight">Compre pescado fresco <span className="block gradient-text">direto do pescador</span></h1><p className="text-lg text-blue-100 max-w-lg">O QUÉX conecta você a pescadores artesanais locais. Encontre peixes e iguarias frescas com preços transparentes e sem intermediários desnecessários.</p><Link to="/marketplace"><button className="gradient-btn px-6 py-3 rounded-xl text-sm flex items-center gap-2">Ver Marketplace <ArrowRight className="w-4 h-4" /></button></Link></div></div></section><section className="py-16 bg-white"><div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"><div className="grid grid-cols-1 md:grid-cols-3 gap-8">{[{ icon: Fish, title: 'Pescado do Dia', desc: 'Peixes e iguarias anunciados por vendedores locais, com informações claras sobre o produto.' }, { icon: ShoppingBag, title: 'Preço Direto', desc: 'Veja o valor do anúncio e compre diretamente de quem vende o pescado.' }, { icon: Truck, title: 'Entrega em Casa', desc: 'Informe seu endereço no checkout e acompanhe o andamento do pedido.' }].map(f => <div key={f.title} className="text-center p-6 rounded-2xl hover:bg-[#5A5FBF]/5 transition-colors group"><div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-[#0D1273] flex items-center justify-center group-hover:scale-110 transition-transform"><f.icon className="w-7 h-7 text-white" /></div><h3 className="font-heading font-semibold text-lg text-[#0D1273] mb-2">{f.title}</h3><p className="text-sm text-gray-500">{f.desc}</p></div>)}</div></div></section><section className="py-16 bg-[#F2F2F2]"><div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"><div className="flex items-end justify-between mb-8"><div><h2 className="text-2xl md:text-3xl font-heading font-bold text-[#0D1273]">Pescado Fresco Hoje</h2><p className="text-gray-500 mt-1">Confira os anúncios mais recentes</p></div><Link to="/marketplace" className="hidden md:flex items-center gap-1 text-sm font-medium text-[#0D1273] hover:underline">Ver todos <ArrowRight className="w-4 h-4" /></Link></div>{loading ? <div className="flex justify-center py-12"><div className="w-8 h-8 border-4 border-[#5A5FBF]/20 border-t-[#0D1273] rounded-full animate-spin" /></div> : featured.length === 0 ? <div className="text-center py-16 text-gray-400"><Fish className="w-12 h-12 mx-auto mb-3 opacity-40" /><p className="text-lg">Nenhum produto cadastrado ainda</p><p className="text-sm mt-1">Cadastre um produto pela área de vendedor.</p></div> : <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">{featured.slice(0, 6).map(p => <ProductCard key={p.id} product={p} />)}</div>}</div></section></div>
+  const [featured, setFeatured] =
+    useState([])
+  const [loading, setLoading] =
+    useState(true)
+
+  useEffect(() => {
+    let active = true
+
+    listProducts()
+      .then(products => {
+        if (active) {
+          setFeatured(products)
+        }
+      })
+      .catch(error => {
+        console.error(
+          '[QUÉX] Não foi possível carregar os destaques:',
+          error
+        )
+      })
+      .finally(() => {
+        if (active) {
+          setLoading(false)
+        }
+      })
+
+    return () => {
+      active = false
+    }
+  }, [])
+
+  return (
+    <div className="min-h-screen">
+      <ParallaxHero>
+        <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 md:py-32 lg:px-8">
+          <div className="max-w-2xl space-y-6">
+            <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-1.5 text-sm backdrop-blur-sm">
+              <Fish className="h-4 w-4" />
+              <span>
+                Pescado fresco, direto do mar para sua mesa
+              </span>
+            </div>
+
+            <h1 className="text-4xl font-heading font-bold leading-tight md:text-6xl">
+              Compre pescado fresco
+              <span className="gradient-text block">
+                direto do pescador
+              </span>
+            </h1>
+
+            <p className="max-w-lg text-lg text-blue-100">
+              O QUÉX conecta você a pescadores artesanais locais.
+              Encontre peixes e iguarias frescas com preços transparentes
+              e sem intermediários desnecessários.
+            </p>
+
+            <Link
+              to="/marketplace"
+              className="inline-flex"
+            >
+              <button className="gradient-btn flex items-center gap-2 rounded-xl px-6 py-3 text-sm transition-all duration-200 ease-in-out">
+                Ver Marketplace
+                <ArrowRight className="h-4 w-4" />
+              </button>
+            </Link>
+          </div>
+        </div>
+      </ParallaxHero>
+
+      <section className="bg-white py-16">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
+            {BENEFITS.map(item => {
+              const Icon = item.icon
+
+              return (
+                <div
+                  key={item.title}
+                  className="group rounded-2xl p-6 text-center transition-all duration-300 ease-in-out hover:bg-[#5A5FBF]/5"
+                >
+                  <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#0D1273] transition-transform duration-300 ease-in-out group-hover:scale-105">
+                    <Icon className="h-7 w-7 text-white" />
+                  </div>
+
+                  <h3 className="mb-2 text-lg font-heading font-semibold text-[#0D1273]">
+                    {item.title}
+                  </h3>
+
+                  <p className="text-sm text-gray-500">
+                    {item.desc}
+                  </p>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-gray-50 py-16">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="mb-8 flex items-end justify-between">
+            <div>
+              <h2 className="text-2xl font-heading font-bold text-[#0D1273] md:text-3xl">
+                Pescado Fresco Hoje
+              </h2>
+
+              <p className="mt-1 text-gray-500">
+                Confira os anúncios mais recentes
+              </p>
+            </div>
+
+            <Link
+              to="/marketplace"
+              className="hidden items-center gap-1 text-sm font-medium text-[#0D1273] transition-colors duration-200 hover:underline md:flex"
+            >
+              Ver todos
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+
+          {loading ? (
+            <div className="flex justify-center py-12">
+              <LoadingFish
+                size="lg"
+                label="Carregando pescados..."
+              />
+            </div>
+          ) : featured.length === 0 ? (
+            <div className="py-16 text-center text-gray-400">
+              <Fish className="mx-auto mb-3 h-12 w-12 opacity-40" />
+              <p className="text-lg">
+                Nenhum produto cadastrado ainda
+              </p>
+              <p className="mt-1 text-sm">
+                Cadastre um produto pela área de vendedor.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {featured
+                .slice(0, 6)
+                .map(product => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                  />
+                ))}
+            </div>
+          )}
+        </div>
+      </section>
+    </div>
+  )
 }

@@ -1,0 +1,139 @@
+/* =========================================================
+   QUÉX — Módulo 9: visual, estabilidade e movimento
+   ========================================================= */
+
+/* Peixe de loading oficial/placeholder */
+@keyframes quex-fish-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.quex-loading-fish {
+  display: block;
+  object-fit: contain;
+  transform-origin: 50% 50%;
+  animation: quex-fish-spin 2s linear infinite;
+}
+
+/*
+  Compatibilidade: qualquer spinner antigo que ainda use animate-spin
+  passa a exibir o mesmo peixe. Isso evita deixar um Loader2 antigo
+  perdido em algum botão/modal.
+*/
+.animate-spin {
+  border: 0 !important;
+  background:
+    url('/assets/images/loading/loading-fish.svg')
+    center / contain no-repeat !important;
+  color: transparent !important;
+  stroke: transparent !important;
+  animation: quex-fish-spin 2s linear infinite !important;
+}
+
+svg.animate-spin * {
+  stroke: transparent !important;
+}
+
+/* Parallax */
+.quex-parallax-layer {
+  transform: translate3d(0, 0, 0) scale(1.045);
+  transition: transform 200ms ease-out;
+  will-change: transform;
+}
+
+/*
+  Correção global do bug dos ícones sobre o texto.
+  O .input-base do projeto usa padding próprio; estas regras garantem
+  que utilitários pl-/pr- continuem tendo espaço suficiente.
+*/
+.input-base.pl-10 { padding-left: 2.75rem !important; }
+.input-base.pl-11 { padding-left: 2.9rem !important; }
+.input-base.pl-12 { padding-left: 3.1rem !important; }
+.input-base.pr-10 { padding-right: 2.75rem !important; }
+.input-base.pr-11 { padding-right: 2.9rem !important; }
+.input-base.pr-12 { padding-right: 3.1rem !important; }
+
+.quex-input-with-icon .input-base {
+  padding-left: 2.75rem !important;
+}
+
+/* Padrão de animações */
+.quex-card-motion {
+  transition:
+    box-shadow 300ms ease-in-out,
+    border-color 300ms ease-in-out,
+    transform 300ms ease-in-out;
+}
+
+.quex-card-motion:hover {
+  transform: translateY(-2px);
+}
+
+[role='menu'],
+.quex-popover {
+  animation: quex-fade-in 200ms ease-out both;
+}
+
+@keyframes quex-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+[class~='fixed'][class~='inset-0'][class*='bg-black'] {
+  animation: quex-backdrop-in 200ms ease-out both;
+}
+
+[class~='fixed'][class~='inset-0'][class*='bg-black']
+  > [class*='rounded'] {
+  animation: quex-modal-in 200ms ease-out both;
+}
+
+@keyframes quex-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes quex-modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(.99);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Loading em modo escuro continua confortável */
+html[data-theme='dark'] .quex-loading-fish {
+  filter: drop-shadow(0 4px 10px rgba(129, 140, 248, .16));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .quex-loading-fish,
+  .animate-spin {
+    animation: none !important;
+  }
+
+  .quex-parallax-layer {
+    transform: translate3d(0, 0, 0) scale(1.045) !important;
+    transition: none !important;
+  }
+
+  .quex-card-motion:hover {
+    transform: none;
+  }
+
+  [role='menu'],
+  .quex-popover,
+  [class~='fixed'][class~='inset-0'][class*='bg-black'],
+  [class~='fixed'][class~='inset-0'][class*='bg-black'] > [class*='rounded'] {
+    animation: none !important;
+  }
+}

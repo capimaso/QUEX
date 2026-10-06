@@ -1,17 +1,54 @@
 import { apiRequest } from './client'
+import {
+  normalizeSearchDisplay,
+} from '@/lib/text'
+
+function searchSafe(value) {
+  if (typeof value === 'string') {
+    return normalizeSearchDisplay(
+      value
+    )
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(searchSafe)
+  }
+
+  if (
+    value &&
+    typeof value === 'object'
+  ) {
+    return Object.fromEntries(
+      Object.entries(value).map(
+        ([key, item]) => [
+          key,
+          searchSafe(item),
+        ]
+      )
+    )
+  }
+
+  return value
+}
 
 export async function listAdminTickets() {
-  return (
+  const data =
     await apiRequest(
       '/api/admin/tickets'
     )
-  ).tickets || []
+
+  return searchSafe(
+    data.tickets || []
+  )
 }
 
 export async function getAdminTicket(id) {
-  return apiRequest(
-    `/api/admin/tickets/${encodeURIComponent(id)}`
-  )
+  const data =
+    await apiRequest(
+      `/api/admin/tickets/${encodeURIComponent(id)}`
+    )
+
+  return searchSafe(data)
 }
 
 export async function replyAdminTicket(
@@ -45,11 +82,14 @@ export async function setAdminTicketStatus(
 }
 
 export async function listAdminUsers() {
-  return (
+  const data =
     await apiRequest(
       '/api/admin/usuarios'
     )
-  ).users || []
+
+  return searchSafe(
+    data.users || []
+  )
 }
 
 export async function banAdminUser(
@@ -68,11 +108,14 @@ export async function banAdminUser(
 }
 
 export async function listAdminClaims() {
-  return (
+  const data =
     await apiRequest(
       '/api/admin/reivindicacoes'
     )
-  ).claims || []
+
+  return searchSafe(
+    data.claims || []
+  )
 }
 
 export async function approveAdminClaim(id) {
