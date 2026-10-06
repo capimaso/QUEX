@@ -1,17 +1,159 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ArrowRight, Minus, Plus, ShoppingCart, Trash2, Fish } from 'lucide-react'
+import { ArrowRight, Fish, Minus, Plus, ShoppingCart, Trash2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { listCart, removeCartItem, updateCartItem } from '@/api/data'
 import { Button } from '@/components/ui'
 
 export default function Cart() {
-  const [data, setData] = useState({ items: [], cart: { total: 0 } }); const [loading, setLoading] = useState(true); const navigate = useNavigate()
-  const load = () => listCart().then(setData).catch(e => toast.error(e.message)).finally(() => setLoading(false))
+  const [data, setData] = useState({ items: [], cart: { total: 0 } })
+  const [loading, setLoading] = useState(true)
+  const navigate = useNavigate()
+
+  const load = () =>
+    listCart()
+      .then(setData)
+      .catch(error => toast.error(error.message))
+      .finally(() => setLoading(false))
+
   useEffect(load, [])
-  const items = data.items || []; const total = useMemo(() => items.reduce((sum, i) => sum + Number(i.subtotal || 0), 0), [items])
-  const update = async (item, delta) => { try { const result = await updateCartItem(item.id, item.quantity + delta); setData(result) } catch (e) { toast.error(e.message) } }
-  const remove = async item => { try { const result = await removeCartItem(item.id); setData(result) ; toast.success('Item removido.') } catch (e) { toast.error(e.message) } }
-  if (loading) return <div className="flex justify-center py-32"><div className="w-8 h-8 border-4 border-[#5A5FBF]/20 border-t-[#0D1273] rounded-full animate-spin" /></div>
-  return <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8"><div className="mb-8"><h1 className="text-2xl md:text-3xl font-heading font-bold text-[#0D1273]">Seu Carrinho</h1><p className="text-gray-500 mt-1">Revise seus produtos antes de finalizar o pedido</p></div>{items.length === 0 ? <div className="bg-white rounded-2xl border border-gray-100 p-16 text-center"><ShoppingCart className="w-14 h-14 mx-auto mb-4 text-gray-300" /><p className="text-lg font-medium text-gray-600">Seu carrinho está vazio</p><Link to="/marketplace" className="inline-flex items-center mt-4 text-[#0D1273] font-medium hover:underline">Ver marketplace <ArrowRight className="w-4 h-4 ml-1" /></Link></div> : <div className="grid lg:grid-cols-[1fr_320px] gap-6"><div className="space-y-3">{items.map(i => <div key={i.id} className="bg-white rounded-2xl border border-gray-100 p-4 flex gap-4"><img src={i.product_image} alt={i.product_name} className="w-20 h-20 rounded-xl object-cover bg-gray-100" onError={e => { e.currentTarget.style.display = 'none' }} /><div className="flex-1 min-w-0"><h3 className="font-semibold text-[#0D1273] truncate">{i.product_name}</h3><p className="text-xs text-gray-400 mt-1">{i.seller_name}</p><p className="text-sm font-medium mt-2">R$ {i.product_price.toFixed(2)} / unidade</p><p className="text-xs text-gray-400 mt-1">Subtotal: R$ {Number(i.subtotal).toFixed(2)}</p></div><div className="flex flex-col items-end justify-between"><button onClick={() => remove(i)} className="p-2 rounded-lg text-red-400 hover:bg-red-50"><Trash2 className="w-4 h-4" /></button><div className="inline-flex items-center border border-gray-200 rounded-xl overflow-hidden"><button onClick={() => update(i, -1)} disabled={i.quantity <= 1} className="p-2 disabled:opacity-30"><Minus className="w-4 h-4" /></button><span className="w-8 text-center text-sm">{i.quantity}</span><button onClick={() => update(i, 1)} disabled={i.product && i.quantity >= i.product.quantity} className="p-2 disabled:opacity-30"><Plus className="w-4 h-4" /></button></div></div></div>)}</div><div className="bg-white rounded-2xl border border-gray-100 p-5 h-fit sticky top-24"><h2 className="font-semibold text-[#0D1273]">Resumo</h2><div className="flex justify-between mt-4 text-sm"><span className="text-gray-500">Subtotal</span><span className="font-medium">R$ {total.toFixed(2)}</span></div><div className="border-t border-gray-100 my-4" /><div className="flex justify-between mb-5"><span className="font-semibold text-[#0D1273]">Total</span><span className="text-xl font-bold text-[#0D1273]">R$ {total.toFixed(2)}</span></div><Button className="w-full" onClick={() => navigate('/checkout')}>Continuar para checkout <ArrowRight className="w-4 h-4 ml-2" /></Button><div className="mt-4 text-center text-xs text-gray-400"><Fish className="w-3 h-3 inline mr-1" />Pedidos com produtos de vendedores diferentes são finalizados separadamente.</div></div></div>}</div>
+
+  const items = data.items || []
+  const total = useMemo(
+    () => items.reduce((sum, item) => sum + Number(item.subtotal || 0), 0),
+    [items]
+  )
+
+  const update = async (item, delta) => {
+    try {
+      const result = await updateCartItem(item.id, item.quantity + delta)
+      setData(result)
+    } catch (error) {
+      toast.error(error.message)
+    }
+  }
+
+  const remove = async item => {
+    try {
+      const result = await removeCartItem(item.id)
+      setData(result)
+      toast.success('Item removido.')
+    } catch (error) {
+      toast.error(error.message)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex justify-center py-32">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#5A5FBF]/20 border-t-[#0D1273]" />
+      </div>
+    )
+  }
+
+  return (
+    <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mb-8">
+        <h1 className="text-2xl font-heading font-bold text-[#0D1273] md:text-3xl">Seu Carrinho</h1>
+        <p className="mt-1 text-gray-500">Revise seus produtos antes de finalizar o pedido</p>
+      </div>
+
+      {items.length === 0 ? (
+        <div className="rounded-2xl border border-gray-100 bg-white p-16 text-center">
+          <ShoppingCart className="mx-auto mb-4 h-14 w-14 text-gray-300" />
+          <p className="text-lg font-medium text-gray-600">Seu carrinho está vazio</p>
+          <Link to="/marketplace" className="mt-4 inline-flex items-center font-medium text-[#0D1273] hover:underline">
+            Ver marketplace <ArrowRight className="ml-1 h-4 w-4" />
+          </Link>
+        </div>
+      ) : (
+        <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+          <div className="space-y-3">
+            {items.map(item => (
+              <div key={item.id} className="flex gap-4 rounded-2xl border border-gray-100 bg-white p-4">
+                <Link
+                  to={`/product/${item.product_id}`}
+                  className="shrink-0 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#5A5FBF]"
+                  aria-label={`Abrir anúncio de ${item.product_name}`}
+                >
+                  <img
+                    src={item.product_image}
+                    alt={item.product_name}
+                    className="h-20 w-20 rounded-xl bg-gray-100 object-cover transition hover:opacity-90"
+                    onError={event => {
+                      event.currentTarget.style.display = 'none'
+                    }}
+                  />
+                </Link>
+
+                <div className="min-w-0 flex-1">
+                  <Link to={`/product/${item.product_id}`} className="font-semibold text-[#0D1273] hover:underline">
+                    <h3 className="truncate">{item.product_name}</h3>
+                  </Link>
+                  <p className="mt-1 text-xs text-gray-400">{item.seller_name}</p>
+                  <p className="mt-2 text-sm font-medium">R$ {item.product_price.toFixed(2)} / unidade</p>
+                  <p className="mt-1 text-xs text-gray-400">
+                    Subtotal: R$ {Number(item.subtotal).toFixed(2)}
+                  </p>
+                </div>
+
+                <div className="flex flex-col items-end justify-between">
+                  <button
+                    type="button"
+                    onClick={() => remove(item)}
+                    className="rounded-lg p-2 text-red-400 hover:bg-red-50"
+                    aria-label={`Remover ${item.product_name}`}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+
+                  <div className="inline-flex items-center overflow-hidden rounded-xl border border-gray-200">
+                    <button
+                      type="button"
+                      onClick={() => update(item, -1)}
+                      disabled={item.quantity <= 1}
+                      className="p-2 disabled:opacity-30"
+                    >
+                      <Minus className="h-4 w-4" />
+                    </button>
+                    <span className="w-8 text-center text-sm">{item.quantity}</span>
+                    <button
+                      type="button"
+                      onClick={() => update(item, 1)}
+                      disabled={item.product && item.quantity >= item.product.quantity}
+                      className="p-2 disabled:opacity-30"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="sticky top-24 h-fit rounded-2xl border border-gray-100 bg-white p-5">
+            <h2 className="font-semibold text-[#0D1273]">Resumo</h2>
+            <div className="mt-4 flex justify-between text-sm">
+              <span className="text-gray-500">Subtotal</span>
+              <span className="font-medium">R$ {total.toFixed(2)}</span>
+            </div>
+            <div className="my-4 border-t border-gray-100" />
+            <div className="mb-5 flex justify-between">
+              <span className="font-semibold text-[#0D1273]">Total</span>
+              <span className="text-xl font-bold text-[#0D1273]">R$ {total.toFixed(2)}</span>
+            </div>
+
+            <Button className="w-full" onClick={() => navigate('/checkout')}>
+              Continuar para checkout <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+
+            <div className="mt-4 text-center text-xs text-gray-400">
+              <Fish className="mr-1 inline h-3 w-3" />
+              Pedidos com produtos de vendedores diferentes são finalizados separadamente.
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
