@@ -1,7 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import {
   ChevronDown,
   ChevronUp,
+  FileWarning,
   Headphones,
   Loader2,
   MessageCircleQuestion,
@@ -52,9 +54,11 @@ const REASONS = [
 
 export default function SupportWidget() {
   const { user } = useAuth()
+
   const [open, setOpen] = useState(false)
-  const [tab, setTab] = useState(user ? 'faq' : 'chat')
+  const [tab, setTab] = useState(user ? 'faq' : 'claim')
   const [expandedFaq, setExpandedFaq] = useState(null)
+
   const [reason, setReason] = useState('')
   const [message, setMessage] = useState('')
   const [sending, setSending] = useState(false)
@@ -110,7 +114,7 @@ export default function SupportWidget() {
   useEffect(() => {
     if (!user) {
       setOpen(false)
-      setTab('chat')
+      setTab('claim')
       setActiveTicket(null)
       setChatMessage('')
       setReason('')
@@ -314,8 +318,8 @@ export default function SupportWidget() {
 
                 <p className="text-xs text-gray-400">
                   {user
-                    ? 'FAQ e abertura de tickets'
-                    : 'Atendimento por ticket'}
+                    ? 'FAQ e atendimento'
+                    : 'Ajuda com acesso à conta'}
                 </p>
               </div>
             </div>
@@ -359,7 +363,36 @@ export default function SupportWidget() {
           )}
 
           <div className="max-h-[65vh] overflow-y-auto p-4">
-            {user && tab === 'faq' ? (
+            {!user ? (
+              <div className="py-2">
+                <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+                  <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-[#5A5FBF]/10 text-[#0D1273]">
+                    <FileWarning className="h-5 w-5" />
+                  </div>
+
+                  <h3 className="font-semibold text-[#0D1273]">
+                    Seu CPF já está cadastrado?
+                  </h3>
+
+                  <p className="mt-2 text-sm leading-relaxed text-gray-500">
+                    Se o QUÉX informa que seu CPF já pertence a uma conta e você não consegue acessá-la,
+                    envie uma solicitação para a administração analisar.
+                  </p>
+
+                  <Link
+                    to="/claim-cpf"
+                    onClick={() => setOpen(false)}
+                    className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-[#0D1273] px-4 py-3 text-sm font-semibold text-white transition hover:opacity-90"
+                  >
+                    Reivindicar CPF
+                  </Link>
+                </div>
+
+                <p className="mt-3 text-center text-xs leading-relaxed text-gray-400">
+                  Para dúvidas sobre pedidos, pagamentos ou vendedores, entre na sua conta primeiro.
+                </p>
+              </div>
+            ) : tab === 'faq' ? (
               <div className="space-y-2">
                 {FAQ.map((item, index) => {
                   const expanded = expandedFaq === index
@@ -519,27 +552,18 @@ export default function SupportWidget() {
                 onSubmit={submit}
                 className="space-y-4"
               >
-                {user && (
-                  <div>
-                    <Label>Nome</Label>
+                <div>
+                  <Label>Nome</Label>
 
-                    <Input
-                      className="mt-1.5 bg-gray-50"
-                      value={
-                        user.full_name ||
-                        'Usuário'
-                      }
-                      disabled
-                    />
-                  </div>
-                )}
-
-                {!user && (
-                  <div className="rounded-xl bg-[#5A5FBF]/5 p-3 text-xs leading-relaxed text-gray-600">
-                    Você está abrindo um ticket como visitante. Para vincular o atendimento
-                    à sua conta, entre no QUÉX antes de abrir o ticket.
-                  </div>
-                )}
+                  <Input
+                    className="mt-1.5 bg-gray-50"
+                    value={
+                      user.full_name ||
+                      'Usuário'
+                    }
+                    disabled
+                  />
+                </div>
 
                 <div>
                   <Label>Motivo</Label>

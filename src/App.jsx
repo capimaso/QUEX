@@ -17,6 +17,7 @@ import AdminRoute from '@/components/AdminRoute'
 import SupportWidget from '@/components/SupportWidget'
 import Login from '@/pages/Login'
 import Register from '@/pages/Register'
+import ClaimCpf from '@/pages/ClaimCpf'
 import VerifyEmail from '@/pages/VerifyEmail'
 import AuthCallback from '@/pages/AuthCallback'
 import CompleteProfile from '@/pages/CompleteProfile'
@@ -59,6 +60,10 @@ function Gate() {
       <Route
         path="/register"
         element={<Register />}
+      />
+      <Route
+        path="/claim-cpf"
+        element={<ClaimCpf />}
       />
       <Route
         path="/verify-email"
