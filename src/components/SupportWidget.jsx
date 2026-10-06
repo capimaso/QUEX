@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import {
   ChevronDown,
   ChevronUp,
@@ -58,21 +58,76 @@ export default function SupportWidget() {
   const [reason, setReason] = useState('')
   const [message, setMessage] = useState('')
   const [sending, setSending] = useState(false)
-  const [activeTicket, setActiveTicket] =
-    useState(null)
 
-  const [chatLoading, setChatLoading] =
-    useState(false)
+  const [activeTicket, setActiveTicket] = useState(null)
+  const [chatLoading, setChatLoading] = useState(false)
+  const [chatMessage, setChatMessage] = useState('')
+  const [chatSending, setChatSending] = useState(false)
 
-  const [chatMessage, setChatMessage] =
-    useState('')
+  const messagesEndRef = useRef(null)
 
-  const [chatSending, setChatSending] =
-    useState(false)
+  const loadActiveTicket = async ({ showLoading = true } = {}) => {
+    if (!user) {
+      setActiveTicket(null)
+      return
+    }
+
+    if (showLoading) {
+      setChatLoading(true)
+    }
+
+    try {
+      const tickets = await listMySupportTickets()
+
+      const active = tickets.find(
+        ticket =>
+          ticket.status === 'aberto' ||
+          ticket.status === 'respondido'
+      )
+
+      if (!active) {
+        setActiveTicket(null)
+        return
+      }
+
+      const detail = await getMySupportTicket(active.id)
+
+      if (detail.ticket.status === 'fechado') {
+        setActiveTicket(null)
+        return
+      }
+
+      setActiveTicket(detail)
+    } catch (error) {
+      console.error('[QUÉX] erro ao carregar ticket:', error)
+    } finally {
+      if (showLoading) {
+        setChatLoading(false)
+      }
+    }
+  }
 
   useEffect(() => {
-    if (!user) setTab('chat')
-  }, [user])
+    if (!user) {
+      setOpen(false)
+      setTab('chat')
+      setActiveTicket(null)
+      setChatMessage('')
+      setReason('')
+      setMessage('')
+      setExpandedFaq(null)
+      setChatLoading(false)
+      setChatSending(false)
+      return
+    }
+
+    setActiveTicket(null)
+    setChatMessage('')
+    setReason('')
+    setMessage('')
+    setExpandedFaq(null)
+    setTab('faq')
+  }, [user?.id])
 
   useEffect(() => {
     if (
@@ -82,71 +137,127 @@ export default function SupportWidget() {
     ) {
       loadActiveTicket()
     }
-  }, [open, user, tab])
+  }, [open, user?.id, tab])
 
-  const loadActiveTicket =
-    async () => {
-      if (!user) {
-        setActiveTicket(null)
+  useEffect(() => {
+    const ticketId = activeTicket?.ticket?.id
+
+    if (
+      !open ||
+      !user ||
+      tab !== 'chat' ||
+      !ticketId
+    ) {
+      return
+    }
+
+    let cancelled = false
+    let refreshing = false
+
+    const refreshChat = async () => {
+      if (
+        cancelled ||
+        refreshing ||
+        document.visibilityState === 'hidden'
+      ) {
         return
       }
 
-      setChatLoading(true)
+      refreshing = true
 
       try {
-        const tickets =
-          await listMySupportTickets()
+        const detail = await getMySupportTicket(ticketId)
 
-        const active =
-          tickets.find(
-            ticket =>
-              ticket.status ===
-                'aberto' ||
-              ticket.status ===
-                'respondido'
-          )
+        if (cancelled) return
 
-        if (!active) {
+        if (detail.ticket.status === 'fechado') {
           setActiveTicket(null)
+          toast.success('Este atendimento foi encerrado.')
           return
         }
 
-        const detail =
-          await getMySupportTicket(
-            active.id
-          )
-
         setActiveTicket(detail)
       } catch (error) {
-        console.error(
-          '[QUÉX] erro ao carregar ticket:',
-          error
-        )
+        if (!cancelled) {
+          console.error('[QUÉX] erro ao atualizar chat:', error)
+        }
       } finally {
-        setChatLoading(false)
+        refreshing = false
       }
     }
+
+    const handleFocus = () => {
+      refreshChat()
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refreshChat()
+      }
+    }
+
+    window.addEventListener('focus', handleFocus)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    const interval = window.setInterval(refreshChat, 3000)
+
+    return () => {
+      cancelled = true
+      window.clearInterval(interval)
+      window.removeEventListener('focus', handleFocus)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [
+    open,
+    user?.id,
+    tab,
+    activeTicket?.ticket?.id,
+  ])
+
+  useEffect(() => {
+    if (
+      !open ||
+      tab !== 'chat' ||
+      !activeTicket
+    ) {
+      return
+    }
+
+    messagesEndRef.current?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'end',
+    })
+  }, [
+    open,
+    tab,
+    activeTicket?.messages?.length,
+  ])
+
   const submit = async event => {
     event.preventDefault()
-    if (!reason) return toast.error('Escolha o motivo do atendimento.')
+
+    if (!reason) {
+      return toast.error('Escolha o motivo do atendimento.')
+    }
+
     if (message.trim().length < 5) {
       return toast.error('Escreva uma mensagem com um pouco mais de detalhe.')
     }
 
     setSending(true)
+
     try {
       const result = await createSupportTicket({
         reason,
         message: message.trim(),
       })
-      const detail =
-        await getMySupportTicket(
-          result.ticket.id
-        )
+
+      const detail = await getMySupportTicket(result.ticket.id)
 
       setActiveTicket(detail)
       setReason('')
       setMessage('')
+
       toast.success(`Ticket ${result.ticket.label} criado.`)
     } catch (error) {
       toast.error(error.message || 'Não foi possível abrir o ticket.')
@@ -155,47 +266,36 @@ export default function SupportWidget() {
     }
   }
 
-  const sendChatMessage =
-    async event => {
-      event.preventDefault()
+  const sendChatMessage = async event => {
+    event.preventDefault()
 
-      if (
-        !activeTicket?.ticket?.id
-      ) {
-        return
-      }
+    if (!activeTicket?.ticket?.id) return
+    if (!chatMessage.trim()) return
 
-      if (!chatMessage.trim()) {
-        return
-      }
+    setChatSending(true)
 
-      setChatSending(true)
+    try {
+      await sendSupportMessage(
+        activeTicket.ticket.id,
+        chatMessage
+      )
 
-      try {
-        await sendSupportMessage(
-          activeTicket.ticket.id,
-          chatMessage
-        )
+      setChatMessage('')
 
-        setChatMessage('')
+      const refreshed = await getMySupportTicket(
+        activeTicket.ticket.id
+      )
 
-        const refreshed =
-          await getMySupportTicket(
-            activeTicket.ticket.id
-          )
-
-        setActiveTicket(
-          refreshed
-        )
-      } catch (error) {
-        toast.error(
-          error.message ||
-            'Não foi possível enviar a mensagem.'
-        )
-      } finally {
-        setChatSending(false)
-      }
+      setActiveTicket(refreshed)
+    } catch (error) {
+      toast.error(
+        error.message ||
+          'Não foi possível enviar a mensagem.'
+      )
+    } finally {
+      setChatSending(false)
     }
+  }
 
   return (
     <>
@@ -206,10 +306,16 @@ export default function SupportWidget() {
               <div className="rounded-xl bg-[#0D1273] p-2 text-white">
                 <Headphones className="h-4 w-4" />
               </div>
+
               <div>
-                <h2 className="font-semibold text-[#0D1273]">Suporte QUÉX</h2>
+                <h2 className="font-semibold text-[#0D1273]">
+                  Suporte QUÉX
+                </h2>
+
                 <p className="text-xs text-gray-400">
-                  {user ? 'FAQ e abertura de tickets' : 'Atendimento por ticket'}
+                  {user
+                    ? 'FAQ e abertura de tickets'
+                    : 'Atendimento por ticket'}
                 </p>
               </div>
             </div>
@@ -237,6 +343,7 @@ export default function SupportWidget() {
               >
                 FAQ
               </button>
+
               <button
                 type="button"
                 onClick={() => setTab('chat')}
@@ -256,20 +363,30 @@ export default function SupportWidget() {
               <div className="space-y-2">
                 {FAQ.map((item, index) => {
                   const expanded = expandedFaq === index
+
                   return (
-                    <div key={item.question} className="overflow-hidden rounded-xl border border-gray-100">
+                    <div
+                      key={item.question}
+                      className="overflow-hidden rounded-xl border border-gray-100"
+                    >
                       <button
                         type="button"
-                        onClick={() => setExpandedFaq(expanded ? null : index)}
+                        onClick={() =>
+                          setExpandedFaq(
+                            expanded ? null : index
+                          )
+                        }
                         className="flex w-full items-center justify-between gap-3 bg-white px-4 py-3 text-left text-sm font-medium text-[#0D1273]"
                       >
                         <span>{item.question}</span>
+
                         {expanded ? (
                           <ChevronUp className="h-4 w-4 shrink-0" />
                         ) : (
                           <ChevronDown className="h-4 w-4 shrink-0" />
                         )}
                       </button>
+
                       {expanded && (
                         <p className="border-t border-gray-100 bg-gray-50 px-4 py-3 text-sm leading-relaxed text-gray-600">
                           {item.answer}
@@ -280,20 +397,13 @@ export default function SupportWidget() {
                 })}
               </div>
             ) : chatLoading ? (
-
               <div className="flex justify-center py-12">
                 <Loader2 className="h-6 w-6 animate-spin text-[#0D1273]" />
               </div>
-
             ) : activeTicket ? (
-
               <div className="support-chat flex h-[430px] flex-col overflow-hidden">
-
-                {/* CABEÇALHO */}
                 <div className="border-b border-gray-100 pb-3">
-
                   <div className="flex items-center justify-between gap-2">
-
                     <div>
                       <p className="font-semibold text-[#0D1273]">
                         {activeTicket.ticket.label}
@@ -303,9 +413,7 @@ export default function SupportWidget() {
                         {
                           REASONS.find(
                             ([value]) =>
-                              value ===
-                              activeTicket.ticket
-                                .motivo
+                              value === activeTicket.ticket.motivo
                           )?.[1] ||
                           activeTicket.ticket.motivo
                         }
@@ -314,94 +422,76 @@ export default function SupportWidget() {
 
                     <span
                       className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                        activeTicket.ticket
-                          .status === 'respondido'
+                        activeTicket.ticket.status === 'respondido'
                           ? 'bg-blue-100 text-blue-700'
                           : 'bg-amber-100 text-amber-700'
                       }`}
                     >
-                      {activeTicket.ticket
-                        .status === 'respondido'
+                      {activeTicket.ticket.status === 'respondido'
                         ? 'Respondido'
                         : 'Aberto'}
                     </span>
-
                   </div>
-
                 </div>
 
-
-                {/* MENSAGENS */}
                 <div className="support-chat-messages flex-1 space-y-2 overflow-y-auto py-4">
-
-                  {activeTicket.messages.map(
-                    item => (
+                  {activeTicket.messages.map(item => (
+                    <div
+                      key={item.id}
+                      className={`flex ${
+                        item.is_adm
+                          ? 'justify-start'
+                          : 'justify-end'
+                      }`}
+                    >
                       <div
-                        key={item.id}
-                        className={`flex ${
+                        className={
                           item.is_adm
-                            ? 'justify-start'
-                            : 'justify-end'
-                        }`}
+                            ? 'support-bubble support-bubble-admin'
+                            : 'support-bubble support-bubble-user'
+                        }
                       >
+                        <p className="mb-1 text-[10px] font-semibold opacity-70">
+                          {item.is_adm
+                            ? 'Suporte QUÉX'
+                            : 'Você'}
+                        </p>
 
-                        <div
-                          className={
-                            item.is_adm
-                              ? 'support-bubble support-bubble-admin'
-                              : 'support-bubble support-bubble-user'
-                          }
-                        >
+                        <p className="whitespace-pre-wrap break-words text-sm">
+                          {item.mensagem}
+                        </p>
 
-                          <p className="mb-1 text-[10px] font-semibold opacity-70">
-                            {item.is_adm
-                              ? 'Suporte QUÉX'
-                              : 'Você'}
-                          </p>
-
-                          <p className="whitespace-pre-wrap break-words text-sm">
-                            {item.mensagem}
-                          </p>
-
-                          <p className="mt-1 text-right text-[9px] opacity-60">
-                            {new Date(
-                              item.data_envio
-                            ).toLocaleString(
-                              'pt-BR',
-                              {
-                                day: '2-digit',
-                                month: '2-digit',
-                                hour: '2-digit',
-                                minute: '2-digit',
-                              }
-                            )}
-                          </p>
-
-                        </div>
-
+                        <p className="mt-1 text-right text-[9px] opacity-60">
+                          {new Date(
+                            item.data_envio
+                          ).toLocaleString(
+                            'pt-BR',
+                            {
+                              day: '2-digit',
+                              month: '2-digit',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            }
+                          )}
+                        </p>
                       </div>
-                    )
-                  )}
+                    </div>
+                  ))}
 
+                  <div ref={messagesEndRef} />
                 </div>
 
-
-                {/* CAMPO */}
                 <form
                   onSubmit={sendChatMessage}
                   className="border-t border-gray-100 pt-3"
                 >
-
                   <div className="flex items-end gap-2">
-
                     <Textarea
                       rows={2}
                       maxLength={2000}
                       value={chatMessage}
                       onChange={event =>
-                        setChatMessage(
-                          event.target.value
-                        )
+                        setChatMessage(event.target.value)
                       }
                       placeholder="Digite sua mensagem..."
                       className="min-h-[44px] flex-1 resize-none"
@@ -421,19 +511,26 @@ export default function SupportWidget() {
                         <Send className="h-4 w-4" />
                       )}
                     </Button>
-
                   </div>
-
                 </form>
-
               </div>
-
             ) : (
-              <form onSubmit={submit} className="space-y-4">
+              <form
+                onSubmit={submit}
+                className="space-y-4"
+              >
                 {user && (
                   <div>
                     <Label>Nome</Label>
-                    <Input className="mt-1.5 bg-gray-50" value={user.full_name || 'Usuário'} disabled />
+
+                    <Input
+                      className="mt-1.5 bg-gray-50"
+                      value={
+                        user.full_name ||
+                        'Usuário'
+                      }
+                      disabled
+                    />
                   </div>
                 )}
 
@@ -446,39 +543,67 @@ export default function SupportWidget() {
 
                 <div>
                   <Label>Motivo</Label>
+
                   <Select
                     className="mt-1.5"
                     value={reason}
-                    onChange={event => setReason(event.target.value)}
+                    onChange={event =>
+                      setReason(event.target.value)
+                    }
                     required
                   >
-                    <option value="">Selecione um motivo</option>
-                    {REASONS.map(([value, label]) => (
-                      <option key={value} value={value}>{label}</option>
-                    ))}
+                    <option value="">
+                      Selecione um motivo
+                    </option>
+
+                    {REASONS.map(
+                      ([value, label]) => (
+                        <option
+                          key={value}
+                          value={value}
+                        >
+                          {label}
+                        </option>
+                      )
+                    )}
                   </Select>
                 </div>
 
                 <div>
                   <div className="mb-1.5 flex items-center justify-between">
                     <Label>Mensagem</Label>
-                    <span className="text-xs text-gray-400">{message.length}/2000</span>
+
+                    <span className="text-xs text-gray-400">
+                      {message.length}/2000
+                    </span>
                   </div>
+
                   <Textarea
                     rows={5}
                     maxLength={2000}
                     value={message}
-                    onChange={event => setMessage(event.target.value)}
+                    onChange={event =>
+                      setMessage(event.target.value)
+                    }
                     placeholder="Explique como podemos ajudar..."
                     required
                   />
                 </div>
 
-                <Button className="w-full" disabled={sending}>
+                <Button
+                  className="w-full"
+                  disabled={sending}
+                >
                   {sending ? (
-                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Abrindo ticket...</>
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Abrindo ticket...
+                    </>
                   ) : (
-                    <><Send className="mr-2 h-4 w-4" />Abrir ticket</>
+                    <>
+                      <Send className="mr-2 h-4 w-4" />
+                      Abrir ticket
+                    </>
                   )}
                 </Button>
               </form>
@@ -489,12 +614,22 @@ export default function SupportWidget() {
 
       <button
         type="button"
-        onClick={() => setOpen(value => !value)}
+        onClick={() =>
+          setOpen(value => !value)
+        }
         className="fixed bottom-5 right-5 z-[70] flex h-14 w-14 items-center justify-center rounded-full bg-[#0D1273] text-white shadow-xl transition hover:-translate-y-0.5 hover:shadow-2xl"
-        aria-label={open ? 'Fechar suporte' : 'Abrir suporte'}
+        aria-label={
+          open
+            ? 'Fechar suporte'
+            : 'Abrir suporte'
+        }
         aria-expanded={open}
       >
-        {open ? <X className="h-6 w-6" /> : <MessageCircleQuestion className="h-6 w-6" />}
+        {open ? (
+          <X className="h-6 w-6" />
+        ) : (
+          <MessageCircleQuestion className="h-6 w-6" />
+        )}
       </button>
     </>
   )
