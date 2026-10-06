@@ -27,23 +27,6 @@ import {
 } from './_lib/shipping.js'
 import MockPaymentProvider from './_lib/payment/MockPaymentProvider.js'
 
-  supabaseRequest,
-  selectOne,
-  insertOne,
-  updateOne,
-} from './_lib/db.js'
-import { requireUser } from './_lib/auth.js'
-import {
-  badRequest,
-  created,
-  forbidden,
-  json,
-  notFound,
-  ok,
-  serverError,
-  unauthorized,
-} from './_lib/http.js'
-
 const statusLabels = {
   aguardando_pagamento: 'Aguardando pagamento',
   pendente: 'Pendente',
@@ -627,32 +610,6 @@ async function updateSellerOrder(req, res, user) {
     order: enriched[0],
   })
 }
-
-  insertOne,
-  selectOne,
-  supabaseRequest,
-  supabaseRpc,
-  updateOne,
-} from './_lib/db.js'
-import { requireUser } from './_lib/auth.js'
-import { resolveAdmin } from './_lib/admin.js'
-import {
-  badRequest,
-  forbidden,
-  methodNotAllowed,
-  notFound,
-  ok,
-  readBody,
-  serverError,
-  unauthorized,
-} from './_lib/http.js'
-import { effectivePrice } from './_lib/pricing.js'
-import {
-  calculateShipping,
-  validateCoordinates,
-} from './_lib/shipping.js'
-import MockPaymentProvider from './_lib/payment/MockPaymentProvider.js'
-
 
 const clean = value => String(value ?? '').trim()
 
@@ -1408,11 +1365,8 @@ export default async function handler(req, res) {
   try {
     const resource = clean(req.query?.resource).toLowerCase()
 
-    /*
-      Módulo 11 consolidado:
-      todas estas URLs são reescritas para /api/orders
-      para NÃO criar uma Serverless Function extra na Vercel Hobby.
-    */
+    // Rotas consolidadas do Módulo 11.
+    // Continuam dentro de api/orders.js para respeitar o limite do Vercel Hobby.
     if (resource === 'freight_average') {
       return freightAverage(req, res)
     }
@@ -1452,7 +1406,6 @@ export default async function handler(req, res) {
 
     if (req.method === 'GET') {
       const requestedId = Number(req.query?.id)
-
       let rows
 
       if (Number.isInteger(requestedId) && requestedId > 0) {
