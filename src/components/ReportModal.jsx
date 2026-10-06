@@ -5,11 +5,26 @@ import { submitReport } from '@/api/data'
 import { Button, Label, Textarea } from '@/components/ui'
 
 const CATEGORIES = [
-  'Anúncio Enganoso/Fake',
-  'Perfil Impróprio',
-  'Preço Abusivo/Fraude',
-  'Conteúdo Ofensivo',
-  'Outros',
+  {
+    value: 'anuncio_enganoso',
+    label: 'Anúncio Enganoso/Fake',
+  },
+  {
+    value: 'perfil_improprio',
+    label: 'Perfil Impróprio',
+  },
+  {
+    value: 'preco_abusivo_fraude',
+    label: 'Preço Abusivo/Fraude',
+  },
+  {
+    value: 'conteudo_ofensivo',
+    label: 'Conteúdo Ofensivo',
+  },
+  {
+    value: 'outros',
+    label: 'Outros',
+  },
 ]
 
 export default function ReportModal({
@@ -120,9 +135,9 @@ export default function ReportModal({
             <div className="space-y-2">
               {CATEGORIES.map(option => (
                 <label
-                  key={option}
+                  key={option.value}
                   className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 text-sm transition ${
-                    category === option
+                    category === option.value
                       ? 'border-[#5A5FBF] bg-[#5A5FBF]/5 text-[#0D1273]'
                       : 'border-gray-200 hover:bg-gray-50'
                   }`}
@@ -130,12 +145,13 @@ export default function ReportModal({
                   <input
                     type="radio"
                     name="report-category"
-                    value={option}
-                    checked={category === option}
-                    onChange={() => setCategory(option)}
+                    value={option.value}
+                    checked={category === option.value}
+                    onChange={() => setCategory(option.value)}
                     className="h-4 w-4 accent-[#0D1273]"
                   />
-                  <span>{option}</span>
+
+                  <span>{option.label}</span>
                 </label>
               ))}
             </div>

@@ -15,11 +15,11 @@ const REPORT_TO = 'denuncias.quex@proton.me'
 const DEFAULT_FROM = 'QUÉX <onboarding@resend.dev>'
 
 const CATEGORIES = new Set([
-  'Anúncio Enganoso/Fake',
-  'Perfil Impróprio',
-  'Preço Abusivo/Fraude',
-  'Conteúdo Ofensivo',
-  'Outros',
+  'anuncio_enganoso',
+  'perfil_improprio',
+  'preco_abusivo_fraude',
+  'conteudo_ofensivo',
+  'outros',
 ])
 
 const cleanText = value => String(value ?? '').trim()
