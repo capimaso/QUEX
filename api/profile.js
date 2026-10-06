@@ -18,6 +18,7 @@ import {
   lookupCep,
   ViaCepError,
 } from './_lib/viacep.js'
+import { tryGeocodeAddress } from './_lib/geocoding.js'
 
 const clean = value => String(value ?? '').trim()
 const digits = value => clean(value).replace(/\D/g, '')
@@ -52,16 +53,8 @@ async function updatePhoto(res, user, body) {
       : clean(body.photo_path)
 
   if (path !== null) {
-    if (
-      !isValidAvatarPath(
-        path,
-        user.auth_user_id
-      )
-    ) {
-      return badRequest(
-        res,
-        'Caminho de foto inválido.'
-      )
+    if (!isValidAvatarPath(path, user.auth_user_id)) {
+      return badRequest(res, 'Caminho de foto inválido.')
     }
 
     if (!(await avatarExists(path))) {
@@ -100,10 +93,7 @@ async function resolveAddress(user, body) {
     'numero',
     'complemento',
   ].some(key =>
-    Object.prototype.hasOwnProperty.call(
-      body,
-      key
-    )
+    Object.prototype.hasOwnProperty.call(body, key)
   )
 
   const submittedCep = digits(body.cep)
@@ -123,15 +113,17 @@ async function resolveAddress(user, body) {
     return {
       cep: user.cep || null,
       numero: user.numero || null,
-      complemento:
-        user.complemento || null,
+      complemento: user.complemento || null,
       cidade: user.cidade || null,
       uf: user.uf || null,
+      lat: user.lat == null ? null : Number(user.lat),
+      lng: user.lng == null ? null : Number(user.lng),
       endereco: user.endereco || '',
       localizacao:
         user.cidade && user.uf
           ? `${user.cidade} - ${user.uf}`
           : user.localizacao || null,
+      geocodingWarning: null,
       changed: false,
     }
   }
@@ -183,16 +175,26 @@ async function resolveAddress(user, body) {
   }
 
   const cepData = await lookupCep(cep)
-  const localizacao =
-    `${cepData.cidade} - ${cepData.uf}`
+  const localizacao = `${cepData.cidade} - ${cepData.uf}`
+
+  const geo = await tryGeocodeAddress({
+    cep: cepData.cep,
+    numero,
+    logradouro: cepData.logradouro,
+    bairro: cepData.bairro,
+    cidade: cepData.cidade,
+    uf: cepData.uf,
+  })
 
   return {
     cep: cepData.cep,
     numero,
-    complemento:
-      complemento || null,
+    complemento: complemento || null,
     cidade: cepData.cidade,
     uf: cepData.uf,
+    lat: geo.lat,
+    lng: geo.lng,
+    geocodingWarning: geo.warning,
     localizacao,
     endereco: buildStoredAddress({
       numero,
@@ -208,17 +210,11 @@ async function updateProfile(res, user, body) {
   const phone = clean(body.phone)
 
   if (name.length < 2) {
-    return badRequest(
-      res,
-      'Informe um nome válido.'
-    )
+    return badRequest(res, 'Informe um nome válido.')
   }
 
   if (digits(phone).length < 10) {
-    return badRequest(
-      res,
-      'Informe um telefone válido.'
-    )
+    return badRequest(res, 'Informe um telefone válido.')
   }
 
   const bio =
@@ -234,20 +230,14 @@ async function updateProfile(res, user, body) {
   }
 
   let address
+
   try {
-    address =
-      await resolveAddress(
-        user,
-        body
-      )
+    address = await resolveAddress(user, body)
   } catch (error) {
     if (error instanceof ViaCepError) {
       return json(
         res,
-        error.code ===
-          'viacep_unavailable'
-          ? 503
-          : 400,
+        error.code === 'viacep_unavailable' ? 503 : 400,
         {
           error: error.message,
           code: error.code,
@@ -261,52 +251,41 @@ async function updateProfile(res, user, body) {
   const common = {
     nome: name,
     telefone: phone,
-    endereco:
-      address.endereco,
+    endereco: address.endereco,
     bio: bio || null,
-    localizacao:
-      address.localizacao || null,
+    localizacao: address.localizacao || null,
     cep: address.cep,
     numero: address.numero,
-    complemento:
-      address.complemento,
+    complemento: address.complemento,
     cidade: address.cidade,
     uf: address.uf,
+    lat: address.lat,
+    lng: address.lng,
   }
 
-  const id =
-    encodeURIComponent(user.id)
+  const id = encodeURIComponent(user.id)
 
   if (user.tipo === 'vendedor') {
-    const seller =
-      await selectOne(
-        'vendedor',
-        `id=eq.${id}`
-      )
+    const seller = await selectOne(
+      'vendedor',
+      `id=eq.${id}`
+    )
 
     const cpfCnpj =
-      body.cpf_cnpj !==
-      undefined
+      body.cpf_cnpj !== undefined
         ? digits(body.cpf_cnpj)
-        : digits(
-            seller?.cpf_cnpj || ''
-          )
+        : digits(seller?.cpf_cnpj || '')
 
     const businessName =
-      body.business_name !==
-      undefined
-        ? clean(
-            body.business_name
-          )
+      body.business_name !== undefined
+        ? clean(body.business_name)
         : seller?.comercial || ''
 
     if (
       cpfCnpj.length === 11
         ? !validarCPF(cpfCnpj)
         : cpfCnpj.length === 14
-          ? !validarCNPJ(
-              cpfCnpj
-            )
+          ? !validarCNPJ(cpfCnpj)
           : true
     ) {
       return badRequest(
@@ -322,11 +301,10 @@ async function updateProfile(res, user, body) {
       )
     }
 
-    const duplicate =
-      await selectOne(
-        'vendedor',
-        `cpf_cnpj=eq.${encodeURIComponent(cpfCnpj)}&id=neq.${id}`
-      )
+    const duplicate = await selectOne(
+      'vendedor',
+      `cpf_cnpj=eq.${encodeURIComponent(cpfCnpj)}&id=neq.${id}`
+    )
 
     if (duplicate) {
       return badRequest(
@@ -347,25 +325,18 @@ async function updateProfile(res, user, body) {
       {
         cpf_cnpj: cpfCnpj,
         comercial: businessName,
-        localizacao:
-          address.localizacao || '',
+        localizacao: address.localizacao || '',
         entrega_propria:
-          body.entrega_propria !==
-          undefined
-            ? Boolean(
-                body.entrega_propria
-              )
-            : Boolean(
-                seller?.entrega_propria
-              ),
+          body.entrega_propria !== undefined
+            ? Boolean(body.entrega_propria)
+            : Boolean(seller?.entrega_propria),
       }
     )
   } else {
-    const buyer =
-      await selectOne(
-        'comprador',
-        `id=eq.${id}`
-      )
+    const buyer = await selectOne(
+      'comprador',
+      `id=eq.${id}`
+    )
 
     const cpf =
       body.cpf !== undefined
@@ -379,11 +350,10 @@ async function updateProfile(res, user, body) {
       )
     }
 
-    const duplicate =
-      await selectOne(
-        'comprador',
-        `cpf=eq.${encodeURIComponent(cpf)}&id=neq.${id}`
-      )
+    const duplicate = await selectOne(
+      'comprador',
+      `cpf=eq.${encodeURIComponent(cpf)}&id=neq.${id}`
+    )
 
     if (duplicate) {
       return badRequest(
@@ -405,16 +375,13 @@ async function updateProfile(res, user, body) {
     )
   }
 
-  const fresh =
-    await selectOne(
-      'usuario',
-      `id=eq.${id}`
-    )
+  const fresh = await selectOne(
+    'usuario',
+    `id=eq.${id}`
+  )
 
   return ok(res, {
-    user:
-      await buildPublicUser(
-        fresh
-      ),
+    user: await buildPublicUser(fresh),
+    geocoding_warning: address.geocodingWarning || null,
   })
 }

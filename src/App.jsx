@@ -26,18 +26,19 @@ import ForgotPassword from '@/pages/ForgotPassword'
 import ResetPassword from '@/pages/ResetPassword'
 import Home from '@/pages/Home'
 import Marketplace from '@/pages/Marketplace'
-import ProductDetail from '@/pages/ProductDetail'
+import ProductDetail from '@/pages/ProductDetailModule11'
 import Cart from '@/pages/Cart'
-import Checkout from '@/pages/Checkout'
-import Orders from '@/pages/Orders'
-import Profile from '@/pages/Profile'
+import Checkout from '@/pages/CheckoutModule11'
+import Orders from '@/pages/OrdersModule11'
+import OrderDetail from '@/pages/OrderDetail'
+import Profile from '@/pages/ProfileModule11'
 import Settings from '@/pages/Settings'
 import Sellers from '@/pages/Sellers'
-import PublicProfile from '@/pages/PublicProfile'
+import PublicProfile from '@/pages/PublicProfileModule11'
 import Privacy from '@/pages/Privacy'
 import Terms from '@/pages/Terms'
-import AdminDashboard from '@/pages/admin/AdminDashboard'
-import SellerDashboard from '@/pages/seller/SellerDashboard'
+import AdminDashboard from '@/pages/admin/AdminDashboardModule11'
+import SellerDashboard from '@/pages/seller/SellerDashboardModule11'
 import ProductForm from '@/pages/seller/ProductForm'
 import NotFound from '@/pages/NotFound'
 
@@ -114,6 +115,10 @@ function Gate() {
           <Route
             path="/orders"
             element={<Orders />}
+          />
+          <Route
+            path="/orders/:id"
+            element={<OrderDetail />}
           />
           <Route
             path="/profile"

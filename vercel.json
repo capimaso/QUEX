@@ -4,6 +4,30 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
+      "source": "/api/seller/freight-average",
+      "destination": "/api/commerce?resource=freight_average"
+    },
+    {
+      "source": "/api/seller/profile",
+      "destination": "/api/commerce?resource=seller_profile"
+    },
+    {
+      "source": "/api/shipping/calculate",
+      "destination": "/api/commerce?resource=shipping_calculate"
+    },
+    {
+      "source": "/api/checkout",
+      "destination": "/api/commerce?resource=checkout"
+    },
+    {
+      "source": "/api/payment/mock-confirm",
+      "destination": "/api/commerce?resource=mock_confirm"
+    },
+    {
+      "source": "/api/admin/configuracao",
+      "destination": "/api/commerce?resource=admin_config"
+    },
+    {
       "source": "/api/admin/tickets/:id/reply",
       "destination": "/api/admin/index?resource=ticket_reply&id=:id"
     },

@@ -1,6 +1,7 @@
 import { insertOne, selectOne, deleteWhere } from './db.js'
 import { onlyDigits, validarCPF, validarCNPJ } from './documents.js'
 import { lookupCep, buildStoredAddress } from './viacep.js'
+import { tryGeocodeAddress } from './geocoding.js'
 
 export const SENHA_MARCADOR = '!supabase-auth'
 
@@ -79,11 +80,23 @@ export async function verifyProfileAddress(profile) {
   const cepData = await lookupCep(profile.cep)
   const localizacao = `${cepData.cidade} - ${cepData.uf}`
 
+  const geo = await tryGeocodeAddress({
+    cep: cepData.cep,
+    numero: profile.numero,
+    logradouro: cepData.logradouro,
+    bairro: cepData.bairro,
+    cidade: cepData.cidade,
+    uf: cepData.uf,
+  })
+
   return {
     ...profile,
     cep: cepData.cep,
     cidade: cepData.cidade,
     uf: cepData.uf,
+    lat: geo.lat,
+    lng: geo.lng,
+    geocodingWarning: geo.warning,
     localizacao,
     endereco: buildStoredAddress({
       numero: profile.numero,
@@ -134,6 +147,8 @@ export async function createAccount({
     complemento: profile.complemento || null,
     cidade: profile.cidade,
     uf: profile.uf,
+    lat: profile.lat,
+    lng: profile.lng,
     tipo: profile.role === 'seller' ? 'vendedor' : 'comprador',
     auth_user_id: authUserId,
     is_active: Boolean(active),
@@ -150,6 +165,8 @@ export async function createAccount({
         id: usuario.id,
         comercial: profile.businessName,
         entrega_propria: false,
+        entrega_disponivel: false,
+        valor_por_km: null,
         cpf_cnpj: profile.cpfCnpj,
         localizacao: profile.localizacao,
       })

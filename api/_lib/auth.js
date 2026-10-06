@@ -94,6 +94,8 @@ export function publicUser(user, extras = {}) {
     complemento: user.complemento || '',
     cidade: user.cidade || '',
     uf: user.uf || '',
+    lat: user.lat == null ? null : Number(user.lat),
+    lng: user.lng == null ? null : Number(user.lng),
     birth_date: user.data_nasc || null,
     bio: user.bio || '',
     localizacao:
@@ -122,6 +124,11 @@ export async function buildPublicUser(user, extras = {}) {
       cpf_cnpj: seller?.cpf_cnpj || '',
       business_name: seller?.comercial || '',
       entrega_propria: Boolean(seller?.entrega_propria),
+      delivery_available: Boolean(seller?.entrega_disponivel),
+      value_per_km:
+        seller?.valor_por_km == null
+          ? null
+          : Number(seller.valor_por_km),
     }
   } else {
     const buyer = await selectOne(

@@ -51,6 +51,15 @@ function mapPerson(
     cidade:
       row.cidade || '',
     uf: row.uf || '',
+    delivery_available:
+      row.tipo === 'vendedor'
+        ? Boolean(row.entrega_disponivel)
+        : false,
+    value_per_km:
+      row.tipo === 'vendedor' &&
+      row.valor_por_km != null
+        ? Number(row.valor_por_km)
+        : null,
     foto_url: avatarUrl(
       row.foto_perfil
     ),
