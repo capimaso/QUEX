@@ -4,6 +4,46 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
+      "source": "/api/notifications/read-all",
+      "destination": "/api/profile?resource=notifications_read_all"
+    },
+    {
+      "source": "/api/notifications/:id/read",
+      "destination": "/api/profile?resource=notification_read&id=:id"
+    },
+    {
+      "source": "/api/notifications",
+      "destination": "/api/profile?resource=notifications"
+    },
+    {
+      "source": "/api/account",
+      "destination": "/api/profile?resource=delete_account"
+    },
+    {
+      "source": "/api/admin/usuarios/:id/excluir",
+      "destination": "/api/profile?resource=admin_delete_user&id=:id"
+    },
+    {
+      "source": "/api/admin/produtos/:id/reter",
+      "destination": "/api/profile?resource=admin_retain_product&id=:id"
+    },
+    {
+      "source": "/api/admin/produtos/:id/reativar",
+      "destination": "/api/profile?resource=admin_reactivate_product&id=:id"
+    },
+    {
+      "source": "/api/admin/produtos",
+      "destination": "/api/profile?resource=admin_products"
+    },
+    {
+      "source": "/api/admin/pedidos/:id",
+      "destination": "/api/profile?resource=admin_order&id=:id"
+    },
+    {
+      "source": "/api/admin/pedidos",
+      "destination": "/api/profile?resource=admin_orders"
+    },
+    {
       "source": "/api/products/:id/questions",
       "destination": "/api/report?resource=questions&id=:id"
     },

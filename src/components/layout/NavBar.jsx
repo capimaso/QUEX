@@ -22,44 +22,32 @@ import {
 } from 'lucide-react'
 import { Badge } from '@/components/ui'
 import Avatar from '@/components/Avatar'
+import NotificationBell from '@/components/NotificationBell'
 import { useAuth } from '@/lib/AuthContext'
 
 export default function NavBar({
   user,
   cartCount = 0,
 }) {
-  const [mobileOpen, setMobileOpen] =
-    useState(false)
-  const [
-    userMenuOpen,
-    setUserMenuOpen,
-  ] = useState(false)
-
+  const [mobileOpen, setMobileOpen] = useState(false)
+  const [userMenuOpen, setUserMenuOpen] = useState(false)
   const menuRef = useRef(null)
   const closeTimerRef = useRef(null)
 
-  const { logout } = useAuth()
-  const location = useLocation()
+  const {
+    logout,
+    capabilities,
+  } = useAuth()
 
-  const tipo = String(
-    user?.tipo || ''
-  ).toLowerCase()
+  const location = useLocation()
 
   const accessLevel = String(
     user?.access_level || 'comum'
   ).toLowerCase()
 
-  const isSeller =
-    tipo === 'vendedor' ||
-    user?.role === 'seller'
-
-  const isAdmin =
-    accessLevel === 'adm' ||
-    accessLevel === 'ceo'
-
-  const isBuyer =
-    !isSeller &&
-    !isAdmin
+  const canBuy = Boolean(capabilities?.canBuy)
+  const canSell = Boolean(capabilities?.canSell)
+  const isAdmin = Boolean(capabilities?.isAdmin)
 
   const closeAll = () => {
     setMobileOpen(false)
@@ -70,24 +58,16 @@ export default function NavBar({
     const onPointerDown = event => {
       if (
         menuRef.current &&
-        !menuRef.current.contains(
-          event.target
-        )
+        !menuRef.current.contains(event.target)
       ) {
         setUserMenuOpen(false)
       }
     }
 
-    document.addEventListener(
-      'pointerdown',
-      onPointerDown
-    )
+    document.addEventListener('pointerdown', onPointerDown)
 
     return () =>
-      document.removeEventListener(
-        'pointerdown',
-        onPointerDown
-      )
+      document.removeEventListener('pointerdown', onPointerDown)
   }, [])
 
   useEffect(() => {
@@ -97,18 +77,21 @@ export default function NavBar({
   const linkClass = path =>
     `text-sm font-medium transition-colors ${
       location.pathname === path
-        ? 'text-[#0D1273] font-semibold'
+        ? 'font-semibold text-[#0D1273]'
         : 'text-gray-600 hover:text-[#0D1273]'
     }`
 
   const dropdownLink =
     'flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-700 transition hover:bg-[#5A5FBF]/10 hover:text-[#0D1273]'
 
-  const accountLabel = isAdmin
-    ? accessLevel.toUpperCase()
-    : isSeller
-      ? 'Vendedor'
-      : 'Comprador'
+  const accountLabel =
+    canBuy && canSell
+      ? 'Comprador e Vendedor'
+      : isAdmin
+        ? accessLevel.toUpperCase()
+        : canSell
+          ? 'Vendedor'
+          : 'Comprador'
 
   return (
     <nav className="quex-navbar sticky top-0 z-50 border-b border-[#5A5FBF]/20 bg-white/95 shadow-sm backdrop-blur-md">
@@ -132,18 +115,14 @@ export default function NavBar({
             <div className="hidden items-center gap-6 md:flex">
               <Link
                 to="/marketplace"
-                className={linkClass(
-                  '/marketplace'
-                )}
+                className={linkClass('/marketplace')}
               >
                 Marketplace
               </Link>
 
               <Link
                 to="/sellers"
-                className={linkClass(
-                  '/sellers'
-                )}
+                className={linkClass('/sellers')}
               >
                 Vendedores
               </Link>
@@ -151,7 +130,7 @@ export default function NavBar({
           </div>
 
           <div className="flex items-center gap-2">
-            {isBuyer && (
+            {canBuy && (
               <Link
                 to="/cart"
                 className="relative rounded-lg p-2 transition hover:bg-[#5A5FBF]/10"
@@ -167,35 +146,28 @@ export default function NavBar({
               </Link>
             )}
 
+            <NotificationBell />
+
             <div
               ref={menuRef}
               className="relative"
               onMouseEnter={() => {
                 if (
-                  !window.matchMedia(
-                    '(min-width: 768px)'
-                  ).matches
+                  !window.matchMedia('(min-width: 768px)').matches
                 ) {
                   return
                 }
 
-                if (
-                  closeTimerRef.current
-                ) {
-                  clearTimeout(
-                    closeTimerRef.current
-                  )
-                  closeTimerRef.current =
-                    null
+                if (closeTimerRef.current) {
+                  clearTimeout(closeTimerRef.current)
+                  closeTimerRef.current = null
                 }
 
                 setUserMenuOpen(true)
               }}
               onMouseLeave={() => {
                 if (
-                  !window.matchMedia(
-                    '(min-width: 768px)'
-                  ).matches
+                  !window.matchMedia('(min-width: 768px)').matches
                 ) {
                   return
                 }
@@ -209,15 +181,11 @@ export default function NavBar({
               <button
                 type="button"
                 onClick={() =>
-                  setUserMenuOpen(
-                    value => !value
-                  )
+                  setUserMenuOpen(value => !value)
                 }
                 className="flex items-center gap-2 rounded-xl px-2 py-1.5 transition hover:bg-[#5A5FBF]/10 sm:px-3"
                 aria-haspopup="menu"
-                aria-expanded={
-                  userMenuOpen
-                }
+                aria-expanded={userMenuOpen}
               >
                 <Avatar
                   src={user?.foto_url}
@@ -227,10 +195,8 @@ export default function NavBar({
 
                 <div className="hidden max-w-36 text-left sm:block">
                   <p className="truncate text-xs font-medium text-[#0D1273]">
-                    {user?.full_name ||
-                      'Usuário'}
+                    {user?.full_name || 'Usuário'}
                   </p>
-
                   <p className="text-[10px] text-gray-400">
                     {accountLabel}
                   </p>
@@ -238,9 +204,7 @@ export default function NavBar({
 
                 <ChevronDown
                   className={`hidden h-4 w-4 text-gray-400 transition sm:block ${
-                    userMenuOpen
-                      ? 'rotate-180'
-                      : ''
+                    userMenuOpen ? 'rotate-180' : ''
                   }`}
                 />
               </button>
@@ -248,14 +212,12 @@ export default function NavBar({
               {userMenuOpen && (
                 <div
                   role="menu"
-                  className="absolute right-0 mt-1 w-56 rounded-2xl border border-gray-100 bg-white p-2 shadow-xl"
+                  className="absolute right-0 mt-1 w-60 rounded-2xl border border-gray-100 bg-white p-2 shadow-xl"
                 >
                   <div className="border-b border-gray-100 px-3 py-2 sm:hidden">
                     <p className="truncate text-sm font-semibold text-[#0D1273]">
-                      {user?.full_name ||
-                        'Usuário'}
+                      {user?.full_name || 'Usuário'}
                     </p>
-
                     <p className="text-xs text-gray-400">
                       {accountLabel}
                     </p>
@@ -263,43 +225,48 @@ export default function NavBar({
 
                   <Link
                     to="/profile"
-                    className={
-                      dropdownLink
-                    }
+                    className={dropdownLink}
                     role="menuitem"
                   >
                     <User className="h-4 w-4" />
-                    Meu perfil
+                    Meu Perfil
                   </Link>
 
                   <Link
                     to="/settings"
-                    className={
-                      dropdownLink
-                    }
+                    className={dropdownLink}
                     role="menuitem"
                   >
                     <Settings className="h-4 w-4" />
                     Configurações
                   </Link>
 
-                  <Link
-                    to="/orders"
-                    className={
-                      dropdownLink
-                    }
-                    role="menuitem"
-                  >
-                    <Package className="h-4 w-4" />
-                    Pedidos
-                  </Link>
+                  {canBuy && (
+                    <Link
+                      to="/orders"
+                      className={dropdownLink}
+                      role="menuitem"
+                    >
+                      <Package className="h-4 w-4" />
+                      Pedidos
+                    </Link>
+                  )}
+
+                  {canSell && (
+                    <Link
+                      to="/seller/dashboard"
+                      className={dropdownLink}
+                      role="menuitem"
+                    >
+                      <Store className="h-4 w-4" />
+                      Painel do Vendedor
+                    </Link>
+                  )}
 
                   {isAdmin && (
                     <Link
                       to="/admin"
-                      className={
-                        dropdownLink
-                      }
+                      className={dropdownLink}
                       role="menuitem"
                     >
                       <ShieldCheck className="h-4 w-4" />
@@ -328,11 +295,7 @@ export default function NavBar({
             <button
               type="button"
               className="rounded-lg p-2 transition hover:bg-[#5A5FBF]/10 md:hidden"
-              onClick={() =>
-                setMobileOpen(
-                  value => !value
-                )
-              }
+              onClick={() => setMobileOpen(value => !value)}
               aria-label="Abrir navegação"
             >
               {mobileOpen ? (

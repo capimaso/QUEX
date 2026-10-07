@@ -1,7 +1,19 @@
 import React, { useEffect, useState } from 'react'
-import { Link, Navigate, useLocation, useParams } from 'react-router-dom'
-import { ArrowLeft, Fish, Flag, MapPin, Pencil } from 'lucide-react'
+import {
+  Link,
+  Navigate,
+  useLocation,
+  useParams,
+} from 'react-router-dom'
+import {
+  ArrowLeft,
+  Fish,
+  Flag,
+  MapPin,
+  Pencil,
+} from 'lucide-react'
 import Avatar from '@/components/Avatar'
+import LoadingFish from '@/components/LoadingFish'
 import StarRating from '@/components/StarRating'
 import RatingBars from '@/components/RatingBars'
 import ProductCard from '@/components/products/ProductCard'
@@ -10,7 +22,6 @@ import { Badge, Button } from '@/components/ui'
 import { useAuth } from '@/lib/AuthContext'
 import { getPerson, listProducts } from '@/api/data'
 
-// Serve /sellers/:id e /buyers/:id (mesmo layout; vendedor também mostra os produtos)
 export default function PublicProfile() {
   const { id } = useParams()
   const { pathname } = useLocation()
@@ -29,21 +40,25 @@ export default function PublicProfile() {
     setProducts([])
 
     getPerson(id)
-      .then(async p => {
+      .then(async item => {
         if (!active) return
-        setPerson(p)
+        setPerson(item)
 
-        if (p.role === 'seller') {
-          const list = await listProducts({ sellerId: p.id }).catch(() => [])
+        if (item.role === 'seller') {
+          const list = await listProducts({
+            sellerId: item.id,
+          }).catch(() => [])
+
           if (active) setProducts(list)
         }
       })
-      .catch(e => {
+      .catch(errorValue => {
         if (active) {
           setError(
-            e.status === 404
+            errorValue.status === 404
               ? 'Perfil não encontrado.'
-              : e.message || 'Não foi possível carregar o perfil.'
+              : errorValue.message ||
+                'Não foi possível carregar o perfil.'
           )
         }
       })
@@ -58,20 +73,23 @@ export default function PublicProfile() {
 
   if (loading) {
     return (
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        <div className="h-48 rounded-2xl bg-gray-100 animate-pulse" />
+      <div className="flex justify-center py-28">
+        <LoadingFish
+          size="lg"
+          label="Carregando perfil..."
+        />
       </div>
     )
   }
 
   if (error || !person) {
     return (
-      <div className="max-w-4xl mx-auto px-4 py-16 text-center text-gray-500">
+      <div className="mx-auto max-w-4xl px-4 py-16 text-center text-gray-500">
         {error || 'Perfil não encontrado.'}
         <div className="mt-4">
           <Link
             to="/sellers"
-            className="text-[#0D1273] font-medium hover:underline"
+            className="font-medium text-[#0D1273] hover:underline"
           >
             Ver vendedores
           </Link>
@@ -81,33 +99,39 @@ export default function PublicProfile() {
   }
 
   const isSeller = person.role === 'seller'
-
-  // /buyers/5 que na verdade é vendedor (ou o contrário): manda pra URL certa
   const expected = `/${isSeller ? 'sellers' : 'buyers'}/${person.id}`
-  if (!pathname.startsWith(expected)) return <Navigate to={expected} replace />
+
+  if (!pathname.startsWith(expected)) {
+    return <Navigate to={expected} replace />
+  }
 
   const mine = Number(user?.id) === Number(person.id)
 
   return (
     <>
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
         <Link
           to="/sellers"
-          className="inline-flex items-center text-sm text-gray-500 hover:text-[#0D1273] mb-6"
+          className="mb-6 inline-flex items-center text-sm text-gray-500 hover:text-[#0D1273]"
         >
-          <ArrowLeft className="w-4 h-4 mr-1" />
+          <ArrowLeft className="mr-1 h-4 w-4" />
           Vendedores
         </Link>
 
-        <div className="bg-white rounded-2xl border border-gray-100 p-6 sm:p-8">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-5">
-            <Avatar src={person.foto_url} name={person.name} size={112} />
+        <div className="rounded-2xl border border-gray-100 bg-white p-6 sm:p-8">
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
+            <Avatar
+              src={person.foto_url}
+              name={person.name}
+              size={112}
+            />
 
-            <div className="flex-1 min-w-0 space-y-2">
+            <div className="min-w-0 flex-1 space-y-2">
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-2xl md:text-3xl font-heading font-bold text-[#0D1273] break-words">
+                <h1 className="break-words text-2xl font-heading font-bold text-[#0D1273] md:text-3xl">
                   {person.name}
                 </h1>
+
                 <Badge className="bg-[#5A5FBF]/10 text-[#0D1273]">
                   {isSeller ? 'Vendedor' : 'Comprador'}
                 </Badge>
@@ -120,8 +144,8 @@ export default function PublicProfile() {
               )}
 
               {person.localizacao && (
-                <p className="text-gray-500 flex items-center gap-1">
-                  <MapPin className="w-4 h-4" />
+                <p className="flex items-center gap-1 text-gray-500">
+                  <MapPin className="h-4 w-4" />
                   {person.localizacao}
                 </p>
               )}
@@ -133,44 +157,42 @@ export default function PublicProfile() {
               />
 
               {person.rating.count > 0 && (
-                <div className="mt-3">
-                  <RatingBars
-                    distribution={person.rating.distribution}
-                    count={person.rating.count}
-                  />
-                </div>
+                <RatingBars
+                  distribution={person.rating.distribution}
+                  count={person.rating.count}
+                />
               )}
             </div>
 
-            <div className="flex flex-wrap gap-2">
-              {mine ? (
-                <Link to="/profile">
-                  <Button variant="outline" size="sm">
-                    <Pencil className="w-4 h-4 mr-2" />
-                    Editar perfil
-                  </Button>
-                </Link>
-              ) : (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setReportOpen(true)}
-                  className="text-red-600 hover:bg-red-50"
-                >
-                  <Flag className="w-4 h-4 mr-2" />
-                  Denunciar
+            {mine ? (
+              <Link to="/profile">
+                <Button variant="outline" size="sm">
+                  <Pencil className="mr-2 h-4 w-4" />
+                  Editar perfil
                 </Button>
-              )}
-            </div>
+              </Link>
+            ) : (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setReportOpen(true)}
+                className="text-red-600 hover:bg-red-50"
+              >
+                <Flag className="mr-2 h-4 w-4" />
+                Denunciar
+              </Button>
+            )}
           </div>
 
-          <div className="mt-6 pt-6 border-t border-gray-100">
-            <h2 className="font-semibold text-[#0D1273] mb-2">Sobre</h2>
-            <p className="text-gray-600 whitespace-pre-line">
+          <div className="mt-6 border-t border-gray-100 pt-6">
+            <h2 className="mb-2 font-semibold text-[#0D1273]">
+              Sobre
+            </h2>
+            <p className="whitespace-pre-line text-gray-600">
               {person.bio ||
                 (mine
-                  ? 'Você ainda não escreveu uma biografia. Dá pra adicionar no seu perfil.'
+                  ? 'Você ainda não escreveu uma biografia.'
                   : 'Ainda sem biografia.')}
             </p>
           </div>
@@ -178,19 +200,22 @@ export default function PublicProfile() {
 
         {isSeller && (
           <div className="mt-8">
-            <h2 className="text-xl font-heading font-bold text-[#0D1273] mb-4">
+            <h2 className="mb-4 text-xl font-heading font-bold text-[#0D1273]">
               Produtos
             </h2>
 
             {products.length === 0 ? (
-              <div className="text-center py-12 text-gray-400 bg-white rounded-2xl border border-gray-100">
-                <Fish className="w-8 h-8 mx-auto mb-2" />
+              <div className="rounded-2xl border border-gray-100 bg-white py-12 text-center text-gray-400">
+                <Fish className="mx-auto mb-2 h-8 w-8" />
                 <p>Nenhum produto à venda no momento.</p>
               </div>
             ) : (
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 {products.map(product => (
-                  <ProductCard key={product.id} product={product} />
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                  />
                 ))}
               </div>
             )}

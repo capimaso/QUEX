@@ -19,6 +19,10 @@ import {
   verifyProfileAddress,
 } from '../_lib/accounts.js'
 import { ViaCepError } from '../_lib/viacep.js'
+import {
+  DocumentVerificationError,
+  verifyDocument,
+} from '../_lib/brasilApi.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -76,25 +80,57 @@ export default async function handler(req, res) {
 
     const meta = authUser.user_metadata || {}
     const email = String(authUser.email || '').toLowerCase()
-    const name = String(
+    const submittedName = String(
+      body.name ||
       meta.full_name ||
-        meta.name ||
-        email.split('@')[0] ||
-        'Usuário'
+      meta.name ||
+      email.split('@')[0] ||
+      'Usuário'
     )
       .trim()
       .slice(0, 100)
 
+    const document =
+      profile.role === 'buyer'
+        ? profile.cpf
+        : profile.cpfCnpj
+
+    let documentVerification
+
+    try {
+      documentVerification = await verifyDocument({
+        document,
+        submittedName,
+        businessName: profile.businessName,
+      })
+    } catch (error) {
+      if (error instanceof DocumentVerificationError) {
+        return json(res, error.status || 400, {
+          error: error.message,
+          code: error.code,
+        })
+      }
+      throw error
+    }
+
+    const accountName =
+      documentVerification.kind === 'cpf'
+        ? documentVerification.officialName || submittedName
+        : documentVerification.tradeName || profile.businessName || submittedName
+
     const novo = await createAccount({
       authUserId: authUser.id,
-      name,
+      name: accountName,
       email,
       active: true,
       profile,
+      documentVerification,
     })
 
     return created(res, {
       user: await buildPublicUser(novo, extras),
+      document_verification_pending: Boolean(documentVerification.pending),
+      verification_warning: documentVerification.warning || null,
     })
   } catch (error) {
     return serverError(res, error)

@@ -52,28 +52,21 @@ export function AuthProvider({ children }) {
   const [sessionReady, setSessionReady] = useState(false)
   const [account, setAccount] = useState(EMPTY)
   const [resolvedFor, setResolvedFor] = useState(null)
-  const [configured, setConfigured] = useState(
-    isSupabaseConfigured
-  )
+  const [configured, setConfigured] = useState(isSupabaseConfigured)
 
   useEffect(() => {
     let active = true
 
-    supabase.auth
-      .getSession()
-      .then(({ data }) => {
-        if (!active) return
-        setSession(data.session)
-        setSessionReady(true)
-      })
+    supabase.auth.getSession().then(({ data }) => {
+      if (!active) return
+      setSession(data.session)
+      setSessionReady(true)
+    })
 
-    const { data } =
-      supabase.auth.onAuthStateChange(
-        (_event, next) => {
-          setSession(next)
-          setSessionReady(true)
-        }
-      )
+    const { data } = supabase.auth.onAuthStateChange((_event, next) => {
+      setSession(next)
+      setSessionReady(true)
+    })
 
     return () => {
       active = false
@@ -97,7 +90,6 @@ export function AuthProvider({ children }) {
     apiRequest('/api/auth/me')
       .then(data => {
         if (!active) return
-
         setAccount({
           user: data.user || null,
           needsProfile: Boolean(data.needs_profile),
@@ -106,25 +98,16 @@ export function AuthProvider({ children }) {
       })
       .catch(async error => {
         if (!active) return
-
         setAccount(EMPTY)
 
-        // Conta banida/inativa não deve conservar sessão no navegador.
-        if (
-          error.status === 401 ||
-          error.status === 403
-        ) {
-          await supabase.auth
-            .signOut()
-            .catch(() => {})
+        if (error.status === 401 || error.status === 403) {
+          await supabase.auth.signOut().catch(() => {})
         } else {
           setConfigured(false)
         }
       })
       .finally(() => {
-        if (active) {
-          setResolvedFor(userId)
-        }
+        if (active) setResolvedFor(userId)
       })
 
     return () => {
@@ -134,29 +117,21 @@ export function AuthProvider({ children }) {
 
   const loading =
     !sessionReady ||
-    (Boolean(userId) &&
-      resolvedFor !== userId)
+    (Boolean(userId) && resolvedFor !== userId)
 
   const refreshUser = async () => {
-    const data = await apiRequest(
-      '/api/auth/me'
-    )
+    const data = await apiRequest('/api/auth/me')
 
     setAccount({
       user: data.user || null,
-      needsProfile: Boolean(
-        data.needs_profile
-      ),
+      needsProfile: Boolean(data.needs_profile),
       auth: data.auth || null,
     })
 
     return data.user || null
   }
 
-  const login = async (
-    email,
-    password
-  ) => {
+  const login = async (email, password) => {
     let { error } =
       await supabase.auth.signInWithPassword({
         email,
@@ -167,23 +142,18 @@ export function AuthProvider({ children }) {
       error &&
       (
         error.code === 'invalid_credentials' ||
-        /invalid login/i.test(
-          error.message || ''
-        )
+        /invalid login/i.test(error.message || '')
       )
     ) {
       try {
-        await apiRequest(
-          '/api/auth/legacy',
-          {
-            method: 'POST',
-            body: JSON.stringify({
-              action: 'login',
-              email,
-              password,
-            }),
-          }
-        )
+        await apiRequest('/api/auth/legacy', {
+          method: 'POST',
+          body: JSON.stringify({
+            action: 'login',
+            email,
+            password,
+          }),
+        })
 
         ;({ error } =
           await supabase.auth.signInWithPassword({
@@ -191,23 +161,16 @@ export function AuthProvider({ children }) {
             password,
           }))
       } catch (legacyError) {
-        if (legacyError.status === 409) {
-          throw legacyError
-        }
+        if (legacyError.status === 409) throw legacyError
       }
     }
 
-    if (error) {
-      throw erroAuth(error)
-    }
+    if (error) throw erroAuth(error)
 
     try {
       return await refreshUser()
     } catch (accountError) {
-      await supabase.auth
-        .signOut()
-        .catch(() => {})
-
+      await supabase.auth.signOut().catch(() => {})
       throw accountError
     }
   }
@@ -221,78 +184,85 @@ export function AuthProvider({ children }) {
       }),
     })
 
-  const loginWithGoogle =
-    async () => {
-      const { error } =
-        await supabase.auth.signInWithOAuth({
-          provider: 'google',
-          options: {
-            redirectTo: callbackUrl(),
-            queryParams: {
-              prompt: 'select_account',
-            },
+  const loginWithGoogle = async () => {
+    const { error } =
+      await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: callbackUrl(),
+          queryParams: {
+            prompt: 'select_account',
           },
-        })
-
-      if (error) {
-        throw erroAuth(error)
-      }
-    }
-
-  const completeProfile =
-    async payload => {
-      const data = await apiRequest(
-        '/api/auth/complete-profile',
-        {
-          method: 'POST',
-          body: JSON.stringify(payload),
-        }
-      )
-
-      setAccount({
-        user: data.user,
-        needsProfile: false,
-        auth: null,
+        },
       })
 
-      return data.user
-    }
+    if (error) throw erroAuth(error)
+  }
 
-  const resendConfirmation =
-    async email => {
-      const { error } =
-        await supabase.auth.resend({
-          type: 'signup',
-          email,
-          options: {
-            emailRedirectTo:
-              callbackUrl(),
-          },
-        })
-
-      if (error) {
-        throw erroAuth(error)
+  const completeProfile = async payload => {
+    const data = await apiRequest(
+      '/api/auth/complete-profile',
+      {
+        method: 'POST',
+        body: JSON.stringify(payload),
       }
+    )
+
+    setAccount({
+      user: data.user,
+      needsProfile: false,
+      auth: null,
+    })
+
+    if (data.verification_warning) {
+      toast(data.verification_warning, {
+        icon: '⚠️',
+      })
     }
+
+    return data.user
+  }
+
+  const resendConfirmation = async email => {
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email,
+      options: {
+        emailRedirectTo: callbackUrl(),
+      },
+    })
+
+    if (error) throw erroAuth(error)
+  }
 
   const logout = async () => {
-    await supabase.auth
-      .signOut()
-      .catch(() => {})
-
+    await supabase.auth.signOut().catch(() => {})
     setAccount(EMPTY)
     toast.success('Sessão encerrada.')
   }
 
+  const capabilities = useMemo(() => {
+    const user = account.user
+
+    return {
+      canBuy: Boolean(user?.has_buyer_profile),
+      canSell: Boolean(user?.has_seller_profile),
+      isAdmin:
+        ['adm', 'ceo'].includes(
+          String(user?.access_level || '').toLowerCase()
+        ),
+    }
+  }, [account.user])
+
   const value = useMemo(
     () => ({
       user: account.user,
-      needsProfile:
-        account.needsProfile,
+      needsProfile: account.needsProfile,
       authInfo: account.auth,
       session,
       loading,
       configured,
+      capabilities,
       login,
       register,
       loginWithGoogle,
@@ -301,12 +271,7 @@ export function AuthProvider({ children }) {
       logout,
       refreshUser,
     }),
-    [
-      account,
-      session,
-      loading,
-      configured,
-    ]
+    [account, session, loading, configured, capabilities]
   )
 
   return (
@@ -317,8 +282,7 @@ export function AuthProvider({ children }) {
 }
 
 export function useAuth() {
-  const context =
-    useContext(AuthContext)
+  const context = useContext(AuthContext)
 
   if (!context) {
     throw new Error(

@@ -23,7 +23,7 @@ export async function resolveAccount(req) {
   if (!usuario && confirmed && authUser.email) {
     const legado = await selectOne(
       'usuario',
-      `email=eq.${encodeURIComponent(String(authUser.email).toLowerCase())}&auth_user_id=is.null&banido_em=is.null`
+      `email=eq.${encodeURIComponent(String(authUser.email).toLowerCase())}&auth_user_id=is.null&banido_em=is.null&excluido_em=is.null`
     )
 
     if (legado) {
@@ -42,6 +42,7 @@ export async function resolveAccount(req) {
     usuario &&
     !usuario.is_active &&
     !usuario.banido_em &&
+    !usuario.excluido_em &&
     confirmed
   ) {
     usuario =
@@ -64,7 +65,8 @@ export async function requireUser(req) {
   if (
     !account?.usuario ||
     !account.usuario.is_active ||
-    account.usuario.banido_em
+    account.usuario.banido_em ||
+    account.usuario.excluido_em
   ) {
     return null
   }
@@ -107,38 +109,33 @@ export function publicUser(user, extras = {}) {
     role: user.tipo === 'vendedor' ? 'seller' : 'buyer',
     tipo: user.tipo,
     access_level: String(user.nivel_acesso || 'comum').toLowerCase(),
+    legal_name: user.razao_social || '',
+    name_immutable: Boolean(user.nome_imutavel),
+    verification_pending: Boolean(user.verificacao_pendente),
     ...extras,
   }
 }
 
 export async function buildPublicUser(user, extras = {}) {
-  let detail
+  const id = encodeURIComponent(user.id)
 
-  if (user.tipo === 'vendedor') {
-    const seller = await selectOne(
-      'vendedor',
-      `id=eq.${encodeURIComponent(user.id)}`
-    )
+  const [buyer, seller] = await Promise.all([
+    selectOne('comprador', `id=eq.${id}`),
+    selectOne('vendedor', `id=eq.${id}`),
+  ])
 
-    detail = {
-      cpf_cnpj: seller?.cpf_cnpj || '',
-      business_name: seller?.comercial || '',
-      entrega_propria: Boolean(seller?.entrega_propria),
-      delivery_available: Boolean(seller?.entrega_disponivel),
-      value_per_km:
-        seller?.valor_por_km == null
-          ? null
-          : Number(seller.valor_por_km),
-    }
-  } else {
-    const buyer = await selectOne(
-      'comprador',
-      `id=eq.${encodeURIComponent(user.id)}`
-    )
-
-    detail = {
-      cpf: buyer?.cpf || '',
-    }
+  const detail = {
+    has_buyer_profile: Boolean(buyer),
+    has_seller_profile: Boolean(seller),
+    cpf: buyer?.cpf || '',
+    cpf_cnpj: seller?.cpf_cnpj || '',
+    business_name: seller?.comercial || '',
+    entrega_propria: Boolean(seller?.entrega_propria),
+    delivery_available: Boolean(seller?.entrega_disponivel),
+    value_per_km:
+      seller?.valor_por_km == null
+        ? null
+        : Number(seller.valor_por_km),
   }
 
   return publicUser(user, {

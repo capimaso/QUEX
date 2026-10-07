@@ -17,6 +17,10 @@ import {
   signUpWithEmail,
 } from '../_lib/supabaseAuth.js'
 import { ViaCepError } from '../_lib/viacep.js'
+import {
+  DocumentVerificationError,
+  verifyDocument,
+} from '../_lib/brasilApi.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -29,11 +33,11 @@ export default async function handler(req, res) {
 
   try {
     const body = readBody(req)
-    const name = String(body.name || '').trim()
+    const submittedName = String(body.name || '').trim()
     const email = String(body.email || '').trim().toLowerCase()
     const password = String(body.password || '')
 
-    if (name.length < 2) {
+    if (submittedName.length < 2) {
       return badRequest(res, 'Informe um nome válido.')
     }
 
@@ -65,7 +69,7 @@ export default async function handler(req, res) {
     if (
       await selectOne(
         'usuario',
-        `email=eq.${encodeURIComponent(email)}`
+        `email=eq.${encodeURIComponent(email)}&excluido_em=is.null`
       )
     ) {
       return badRequest(
@@ -90,6 +94,35 @@ export default async function handler(req, res) {
       })
     }
 
+    const document =
+      profile.role === 'buyer'
+        ? profile.cpf
+        : profile.cpfCnpj
+
+    let documentVerification
+
+    try {
+      documentVerification = await verifyDocument({
+        document,
+        submittedName,
+        businessName: profile.businessName,
+      })
+    } catch (error) {
+      if (error instanceof DocumentVerificationError) {
+        return json(res, error.status || 400, {
+          error: error.message,
+          code: error.code,
+        })
+      }
+
+      throw error
+    }
+
+    const accountName =
+      documentVerification.kind === 'cpf'
+        ? documentVerification.officialName || submittedName
+        : documentVerification.tradeName || profile.businessName || submittedName
+
     const redirectTo =
       String(body.redirect_to || '').trim() || undefined
 
@@ -97,7 +130,7 @@ export default async function handler(req, res) {
       email,
       password,
       data: {
-        full_name: name,
+        full_name: accountName,
         role: profile.role,
       },
       redirectTo,
@@ -124,14 +157,17 @@ export default async function handler(req, res) {
 
     await createAccount({
       authUserId,
-      name,
+      name: accountName,
       email,
       active: confirmed,
       profile,
+      documentVerification,
     })
 
     return created(res, {
       pending_verification: !confirmed,
+      document_verification_pending: Boolean(documentVerification.pending),
+      verification_warning: documentVerification.warning || null,
       email,
     })
   } catch (error) {

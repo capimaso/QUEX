@@ -134,9 +134,30 @@ export async function createAccount({
   email,
   active,
   profile,
+  documentVerification = null,
 }) {
+  const kind =
+    documentVerification?.kind ||
+    (
+      profile.role === 'seller' && profile.cpfCnpj?.length === 14
+        ? 'cnpj'
+        : 'cpf'
+    )
+
+  const finalName =
+    kind === 'cpf'
+      ? (
+          documentVerification?.officialName ||
+          name
+        )
+      : (
+          documentVerification?.tradeName ||
+          profile.businessName ||
+          name
+        )
+
   const usuario = await insertOne('usuario', {
-    nome: name,
+    nome: finalName,
     email,
     senha: SENHA_MARCADOR,
     telefone: profile.phone,
@@ -152,6 +173,12 @@ export async function createAccount({
     tipo: profile.role === 'seller' ? 'vendedor' : 'comprador',
     auth_user_id: authUserId,
     is_active: Boolean(active),
+    razao_social:
+      kind === 'cnpj'
+        ? documentVerification?.legalName || null
+        : null,
+    nome_imutavel: kind === 'cpf',
+    verificacao_pendente: Boolean(documentVerification?.pending),
   })
 
   try {
@@ -163,7 +190,13 @@ export async function createAccount({
     } else {
       await insertOne('vendedor', {
         id: usuario.id,
-        comercial: profile.businessName,
+        comercial:
+          kind === 'cnpj'
+            ? (
+                documentVerification?.tradeName ||
+                profile.businessName
+              )
+            : profile.businessName,
         entrega_propria: false,
         entrega_disponivel: false,
         valor_por_km: null,

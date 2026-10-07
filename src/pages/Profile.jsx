@@ -21,6 +21,7 @@ import {
 import AddressFields from '@/components/AddressFields'
 import AvatarUploader from '@/components/AvatarUploader'
 import DocumentField from '@/components/DocumentField'
+import PasswordInput from '@/components/PasswordInput'
 import {
   Button,
   Input,
@@ -56,32 +57,18 @@ export default function Profile() {
     refreshUser,
   } = useAuth()
 
-  const [form, setForm] =
-    useState(EMPTY)
+  const [form, setForm] = useState(EMPTY)
+  const [cepValid, setCepValid] = useState(false)
+  const [passwords, setPasswords] = useState({
+    current: '',
+    next: '',
+    confirm: '',
+  })
+  const [saving, setSaving] = useState(false)
+  const [savingPassword, setSavingPassword] = useState(false)
 
-  const [cepValid, setCepValid] =
-    useState(false)
-
-  const [passwords, setPasswords] =
-    useState({
-      current: '',
-      next: '',
-      confirm: '',
-    })
-
-  const [saving, setSaving] =
-    useState(false)
-
-  const [
-    savingPassword,
-    setSavingPassword,
-  ] = useState(false)
-
-  const isSeller =
-    user?.role === 'seller'
-
-  const hasPassword =
-    user?.has_password !== false
+  const isSeller = Boolean(user?.has_seller_profile)
+  const hasPassword = user?.has_password !== false
 
   const set = (key, value) =>
     setForm(current => ({
@@ -93,58 +80,37 @@ export default function Profile() {
     if (!user) return
 
     setForm({
-      name:
-        user.full_name || '',
-      phone:
-        user.phone || '',
-      cpf:
-        formatarCPF(
-          user.cpf || ''
-        ),
-      cpf_cnpj:
-        formatarDocumento(
-          user.cpf_cnpj || ''
-        ),
-      business_name:
-        user.business_name || '',
+      name: user.full_name || '',
+      phone: user.phone || '',
+      cpf: formatarCPF(user.cpf || ''),
+      cpf_cnpj: formatarDocumento(user.cpf_cnpj || ''),
+      business_name: user.business_name || '',
       bio: user.bio || '',
-      entrega_propria:
-        Boolean(
-          user.entrega_propria
-        ),
+      entrega_propria: Boolean(user.entrega_propria),
       cep: user.cep || '',
-      numero:
-        user.numero || '',
-      complemento:
-        user.complemento || '',
-      cidade:
-        user.cidade || '',
+      numero: user.numero || '',
+      complemento: user.complemento || '',
+      cidade: user.cidade || '',
       uf: user.uf || '',
     })
 
     setCepValid(
-      Boolean(
-        user.cep &&
-        user.cidade &&
-        user.uf
-      )
+      Boolean(user.cep && user.cidade && user.uf)
     )
   }, [user])
 
   const save = async () => {
-    const hasAnyAddress =
-      Boolean(
-        form.cep ||
-        form.numero ||
-        form.cidade ||
-        form.uf
-      )
+    const hasAnyAddress = Boolean(
+      form.cep ||
+      form.numero ||
+      form.cidade ||
+      form.uf
+    )
 
     if (
       hasAnyAddress &&
       (
-        onlyCepDigits(form.cep)
-          .length !== 8 ||
+        onlyCepDigits(form.cep).length !== 8 ||
         !cepValid ||
         !form.numero.trim()
       )
@@ -157,11 +123,14 @@ export default function Profile() {
     setSaving(true)
 
     try {
-      await updateProfile(form)
+      await updateProfile({
+        ...form,
+        // documento vai para o backend apenas para conferência de imutabilidade
+        cpf: user?.cpf || '',
+        cpf_cnpj: user?.cpf_cnpj || '',
+      })
       await refreshUser()
-      toast.success(
-        'Perfil atualizado.'
-      )
+      toast.success('Perfil atualizado.')
     } catch (error) {
       toast.error(error.message)
     } finally {
@@ -169,65 +138,48 @@ export default function Profile() {
     }
   }
 
-  const savePassword =
-    async () => {
-      if (
-        hasPassword &&
-        !passwords.current
-      ) {
-        return toast.error(
-          'Informe a senha atual.'
-        )
-      }
-
-      if (
-        passwords.next.length < 6
-      ) {
-        return toast.error(
-          'A nova senha deve ter no mínimo 6 caracteres.'
-        )
-      }
-
-      if (
-        passwords.next !==
-        passwords.confirm
-      ) {
-        return toast.error(
-          'As senhas não coincidem.'
-        )
-      }
-
-      setSavingPassword(true)
-
-      try {
-        await changePassword(
-          hasPassword
-            ? passwords.current
-            : null,
-          passwords.next
-        )
-
-        setPasswords({
-          current: '',
-          next: '',
-          confirm: '',
-        })
-
-        await refreshUser().catch(
-          () => {}
-        )
-
-        toast.success(
-          hasPassword
-            ? 'Senha alterada com sucesso.'
-            : 'Senha definida! Agora você também pode entrar com e-mail e senha.'
-        )
-      } catch (error) {
-        toast.error(error.message)
-      } finally {
-        setSavingPassword(false)
-      }
+  const savePassword = async () => {
+    if (hasPassword && !passwords.current) {
+      return toast.error('Informe a senha atual.')
     }
+
+    if (passwords.next.length < 6) {
+      return toast.error(
+        'A nova senha deve ter no mínimo 6 caracteres.'
+      )
+    }
+
+    if (passwords.next !== passwords.confirm) {
+      return toast.error('As senhas não coincidem.')
+    }
+
+    setSavingPassword(true)
+
+    try {
+      await changePassword(
+        hasPassword ? passwords.current : null,
+        passwords.next
+      )
+
+      setPasswords({
+        current: '',
+        next: '',
+        confirm: '',
+      })
+
+      await refreshUser().catch(() => {})
+
+      toast.success(
+        hasPassword
+          ? 'Senha alterada com sucesso.'
+          : 'Senha definida com sucesso.'
+      )
+    } catch (error) {
+      toast.error(error.message)
+    } finally {
+      setSavingPassword(false)
+    }
+  }
 
   const publicPath = user
     ? `/${isSeller ? 'sellers' : 'buyers'}/${user.id}`
@@ -252,14 +204,17 @@ export default function Profile() {
         </Link>
       </div>
 
+      {user?.verification_pending && (
+        <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+          Não foi possível validar seu documento agora. Tentaremos novamente em breve.
+        </div>
+      )}
+
       <div className={card}>
         <AvatarUploader
           user={user}
           onUpload={async file => {
-            await uploadAvatar(
-              file,
-              session?.user?.id
-            )
+            await uploadAvatar(file, session?.user?.id)
             await refreshUser()
           }}
           onRemove={async () => {
@@ -281,43 +236,50 @@ export default function Profile() {
 
         <div>
           <Label>
-            {isSeller
-              ? 'Nome do responsável'
-              : 'Nome'}
+            {user?.name_immutable
+              ? 'Nome verificado'
+              : user?.legal_name
+                ? 'Nome fantasia'
+                : 'Nome'}
           </Label>
 
           <div className="relative mt-1.5">
             <UserRound className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-
             <Input
               className="pl-10"
               value={form.name}
-              onChange={event =>
-                set(
-                  'name',
-                  event.target.value
-                )
-              }
+              disabled={Boolean(user?.name_immutable)}
+              onChange={event => set('name', event.target.value)}
             />
           </div>
+
+          {user?.name_immutable && (
+            <p className="mt-1 text-xs text-gray-400">
+              Este nome está vinculado ao CPF e não pode ser alterado.
+            </p>
+          )}
         </div>
+
+        {user?.legal_name && (
+          <div>
+            <Label>Razão social</Label>
+            <Input
+              className="mt-1.5 bg-gray-50"
+              value={user.legal_name}
+              disabled
+            />
+          </div>
+        )}
 
         <div>
           <Label>Telefone</Label>
-
           <div className="relative mt-1.5">
             <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-
             <Input
               className="pl-10"
               inputMode="tel"
               value={form.phone}
-              onChange={event =>
-                set(
-                  'phone',
-                  event.target.value
-                )
-              }
+              onChange={event => set('phone', event.target.value)}
             />
           </div>
         </div>
@@ -326,47 +288,34 @@ export default function Profile() {
           <>
             <DocumentField
               kind="doc"
-              value={
-                form.cpf_cnpj
-              }
-              onChange={value =>
-                set(
-                  'cpf_cnpj',
-                  value
-                )
-              }
+              value={form.cpf_cnpj}
+              onChange={() => {}}
+              disabled
             />
 
-            <div>
-              <Label>
-                Nome do estabelecimento
-              </Label>
+            {!user?.legal_name && (
+              <div>
+                <Label>Nome do estabelecimento</Label>
 
-              <div className="relative mt-1.5">
-                <Store className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-
-                <Input
-                  className="pl-10"
-                  value={
-                    form.business_name
-                  }
-                  onChange={event =>
-                    set(
-                      'business_name',
-                      event.target.value
-                    )
-                  }
-                />
+                <div className="relative mt-1.5">
+                  <Store className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                  <Input
+                    className="pl-10"
+                    value={form.business_name}
+                    onChange={event =>
+                      set('business_name', event.target.value)
+                    }
+                  />
+                </div>
               </div>
-            </div>
+            )}
           </>
         ) : (
           <DocumentField
             kind="cpf"
             value={form.cpf}
-            onChange={value =>
-              set('cpf', value)
-            }
+            onChange={() => {}}
+            disabled
           />
         )}
 
@@ -374,8 +323,7 @@ export default function Profile() {
           value={{
             cep: form.cep,
             numero: form.numero,
-            complemento:
-              form.complemento,
+            complemento: form.complemento,
             cidade: form.cidade,
             uf: form.uf,
           }}
@@ -385,9 +333,7 @@ export default function Profile() {
               ...address,
             }))
           }
-          onValidityChange={
-            setCepValid
-          }
+          onValidityChange={setCepValid}
           disabled={saving}
         />
 
@@ -395,8 +341,7 @@ export default function Profile() {
           <div className="flex items-center justify-between">
             <Label>Biografia</Label>
             <span className="text-xs text-gray-400">
-              {form.bio.length}/
-              {BIO_MAX}
+              {form.bio.length}/{BIO_MAX}
             </span>
           </div>
 
@@ -405,22 +350,9 @@ export default function Profile() {
             rows={4}
             maxLength={BIO_MAX}
             value={form.bio}
-            onChange={event =>
-              set(
-                'bio',
-                event.target.value
-              )
-            }
-            placeholder={
-              isSeller
-                ? 'Conte sua história, como pesca, o que você vende...'
-                : 'Conte um pouco sobre você.'
-            }
+            onChange={event => set('bio', event.target.value)}
+            placeholder="Conte um pouco sobre você."
           />
-
-          <p className="mt-1 text-xs text-gray-400">
-            Aparece no seu perfil público. Do endereço, apenas cidade e UF ficam públicos.
-          </p>
         </div>
 
         {isSeller && (
@@ -429,79 +361,47 @@ export default function Profile() {
               <span className="block text-sm font-medium">
                 Entrega própria
               </span>
-
               <span className="mt-1 block text-xs text-gray-400">
-                Marque caso o vendedor faça a própria entrega.
+                Marque caso faça a própria entrega.
               </span>
             </span>
 
             <input
               type="checkbox"
-              checked={
-                form.entrega_propria
-              }
+              checked={form.entrega_propria}
               onChange={event =>
-                set(
-                  'entrega_propria',
-                  event.target.checked
-                )
+                set('entrega_propria', event.target.checked)
               }
               className="h-5 w-5 accent-[#0D1273]"
             />
           </label>
         )}
 
-        <Button
-          onClick={save}
-          disabled={saving}
-        >
+        <Button onClick={save} disabled={saving}>
           <Save className="mr-2 h-4 w-4" />
-          {saving
-            ? 'Salvando...'
-            : 'Salvar alterações'}
+          {saving ? 'Salvando...' : 'Salvar alterações'}
         </Button>
       </div>
 
-      <div
-        className={card.replace(
-          ' mb-6',
-          ''
-        )}
-      >
+      <div className={card.replace(' mb-6', '')}>
         <div>
           <h2 className="flex items-center gap-2 font-semibold text-[#0D1273]">
             <LockKeyhole className="h-4 w-4" />
-            {hasPassword
-              ? 'Alterar senha'
-              : 'Definir uma senha'}
+            {hasPassword ? 'Alterar senha' : 'Definir uma senha'}
           </h2>
-
-          {!hasPassword && (
-            <p className="mt-1 text-xs text-gray-400">
-              Você entrou com o Google. Se quiser, defina uma senha pra também entrar com e-mail e senha.
-            </p>
-          )}
         </div>
 
         {hasPassword && (
           <div>
-            <Label>
-              Senha atual
-            </Label>
-
-            <Input
+            <Label>Senha atual</Label>
+            <PasswordInput
               className="mt-1.5"
-              type="password"
               autoComplete="current-password"
-              value={
-                passwords.current
-              }
+              value={passwords.current}
               onChange={event =>
                 setPasswords({
                   ...passwords,
-                  current:
-                    event.target
-                      .value,
+                  current: event.target.value,
                 })
               }
             />
@@ -510,44 +410,30 @@ export default function Profile() {
 
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
-            <Label>
-              Nova senha
-            </Label>
-
-            <Input
+            <Label>Nova senha</Label>
+            <PasswordInput
               className="mt-1.5"
-              type="password"
               autoComplete="new-password"
               value={passwords.next}
               onChange={event =>
                 setPasswords({
                   ...passwords,
-                  next:
-                    event.target
-                      .value,
+                  next: event.target.value,
                 })
               }
             />
           </div>
 
           <div>
-            <Label>
-              Confirmar nova senha
-            </Label>
-
-            <Input
+            <Label>Confirmar nova senha</Label>
+            <PasswordInput
               className="mt-1.5"
-              type="password"
               autoComplete="new-password"
-              value={
-                passwords.confirm
-              }
+              value={passwords.confirm}
               onChange={event =>
                 setPasswords({
                   ...passwords,
-                  confirm:
-                    event.target
-                      .value,
+                  confirm: event.target.value,
                 })
               }
             />

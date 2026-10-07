@@ -29,8 +29,8 @@ import Marketplace from '@/pages/Marketplace'
 import ProductDetail from '@/pages/ProductDetailModule12'
 import Cart from '@/pages/Cart'
 import Checkout from '@/pages/CheckoutModule11'
-import Orders from '@/pages/OrdersModule11'
-import OrderDetail from '@/pages/OrderDetailModule12'
+import Orders from '@/pages/OrdersModule13'
+import OrderDetail from '@/pages/OrderDetailModule13'
 import ChatPage from '@/pages/ChatPage'
 import Profile from '@/pages/ProfileModule11'
 import Settings from '@/pages/Settings'
@@ -38,8 +38,8 @@ import Sellers from '@/pages/Sellers'
 import PublicProfile from '@/pages/PublicProfileModule11'
 import Privacy from '@/pages/Privacy'
 import Terms from '@/pages/Terms'
-import AdminDashboard from '@/pages/admin/AdminDashboardModule12'
-import SellerDashboard from '@/pages/seller/SellerDashboardModule12'
+import AdminDashboard from '@/pages/admin/AdminDashboardModule13'
+import SellerDashboard from '@/pages/seller/SellerDashboardModule13'
 import ProductForm from '@/pages/seller/ProductForm'
 import NotFound from '@/pages/NotFound'
 
@@ -58,40 +58,16 @@ function Gate() {
 
   return (
     <Routes>
-      <Route
-        path="/login"
-        element={<Login />}
-      />
-      <Route
-        path="/register"
-        element={<Register />}
-      />
-      <Route
-        path="/claim-cpf"
-        element={<ClaimCpf />}
-      />
-      <Route
-        path="/verify-email"
-        element={<VerifyEmail />}
-      />
-      <Route
-        path="/auth/callback"
-        element={<AuthCallback />}
-      />
-      <Route
-        path="/complete-profile"
-        element={<CompleteProfile />}
-      />
-      <Route
-        path="/forgot-password"
-        element={<ForgotPassword />}
-      />
-      <Route
-        path="/reset-password"
-        element={<ResetPassword />}
-      />
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
+      <Route path="/claim-cpf" element={<ClaimCpf />} />
+      <Route path="/verify-email" element={<VerifyEmail />} />
+      <Route path="/auth/callback" element={<AuthCallback />} />
+      <Route path="/complete-profile" element={<CompleteProfile />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
 
-      {/* O anúncio e seu Q&A são públicos. */}
+      {/* Produto + Q&A continuam públicos desde o Módulo 12. */}
       <Route
         path="/product/:id"
         element={<ProductDetail />}
@@ -99,62 +75,20 @@ function Gate() {
 
       <Route element={<ProtectedRoute />}>
         <Route element={<AppLayout />}>
-          <Route
-            path="/"
-            element={<Home />}
-          />
-          <Route
-            path="/marketplace"
-            element={<Marketplace />}
-          />
-          <Route
-            path="/cart"
-            element={<Cart />}
-          />
-          <Route
-            path="/checkout"
-            element={<Checkout />}
-          />
-          <Route
-            path="/orders"
-            element={<Orders />}
-          />
-          <Route
-            path="/orders/:id"
-            element={<OrderDetail />}
-          />
-          <Route
-            path="/chat/:chat_id"
-            element={<ChatPage />}
-          />
-          <Route
-            path="/profile"
-            element={<Profile />}
-          />
-          <Route
-            path="/settings"
-            element={<Settings />}
-          />
-          <Route
-            path="/sellers"
-            element={<Sellers />}
-          />
-          <Route
-            path="/sellers/:id"
-            element={<PublicProfile />}
-          />
-          <Route
-            path="/buyers/:id"
-            element={<PublicProfile />}
-          />
-          <Route
-            path="/privacy"
-            element={<Privacy />}
-          />
-          <Route
-            path="/terms"
-            element={<Terms />}
-          />
+          <Route path="/" element={<Home />} />
+          <Route path="/marketplace" element={<Marketplace />} />
+          <Route path="/cart" element={<Cart />} />
+          <Route path="/checkout" element={<Checkout />} />
+          <Route path="/orders" element={<Orders />} />
+          <Route path="/orders/:id" element={<OrderDetail />} />
+          <Route path="/chat/:chat_id" element={<ChatPage />} />
+          <Route path="/profile" element={<Profile />} />
+          <Route path="/settings" element={<Settings />} />
+          <Route path="/sellers" element={<Sellers />} />
+          <Route path="/sellers/:id" element={<PublicProfile />} />
+          <Route path="/buyers/:id" element={<PublicProfile />} />
+          <Route path="/privacy" element={<Privacy />} />
+          <Route path="/terms" element={<Terms />} />
 
           <Route element={<AdminRoute />}>
             <Route
@@ -168,6 +102,10 @@ function Gate() {
             element={<SellerDashboard />}
           />
           <Route
+            path="/seller/products"
+            element={<SellerDashboard />}
+          />
+          <Route
             path="/seller/product/:id"
             element={<ProductForm />}
           />
@@ -176,18 +114,10 @@ function Gate() {
 
       <Route
         path="/"
-        element={
-          <Navigate
-            to="/login"
-            replace
-          />
-        }
+        element={<Navigate to="/login" replace />}
       />
 
-      <Route
-        path="*"
-        element={<NotFound />}
-      />
+      <Route path="*" element={<NotFound />} />
     </Routes>
   )
 }
