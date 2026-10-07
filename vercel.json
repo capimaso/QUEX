@@ -4,6 +4,30 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
+      "source": "/api/products/:id/questions",
+      "destination": "/api/report?resource=questions&id=:id"
+    },
+    {
+      "source": "/api/questions/:id/answer",
+      "destination": "/api/report?resource=answer&question_id=:id"
+    },
+    {
+      "source": "/api/chats/:id/messages",
+      "destination": "/api/support?resource=chat_messages&chat_id=:id"
+    },
+    {
+      "source": "/api/chats",
+      "destination": "/api/support?resource=chats"
+    },
+    {
+      "source": "/api/admin/message-reports",
+      "destination": "/api/report?resource=admin_reports"
+    },
+    {
+      "source": "/api/admin/messages/:id/remove",
+      "destination": "/api/report?resource=admin_remove_message&message_id=:id"
+    },
+    {
       "source": "/api/seller/freight-average",
       "destination": "/api/orders?resource=freight_average"
     },
@@ -29,19 +53,19 @@
     },
     {
       "source": "/api/admin/tickets/:id/reply",
-      "destination": "/api/admin/index?resource=ticket_reply&id=:id"
+      "destination": "/api/support?resource=admin_ticket_reply&id=:id"
     },
     {
       "source": "/api/admin/tickets/:id/status",
-      "destination": "/api/admin/index?resource=ticket_status&id=:id"
+      "destination": "/api/support?resource=admin_ticket_status&id=:id"
     },
     {
       "source": "/api/admin/tickets/:id",
-      "destination": "/api/admin/index?resource=ticket&id=:id"
+      "destination": "/api/support?resource=admin_ticket&id=:id"
     },
     {
       "source": "/api/admin/tickets",
-      "destination": "/api/admin/index?resource=tickets"
+      "destination": "/api/support?resource=admin_tickets"
     },
     {
       "source": "/api/admin/usuarios/:id/banir",

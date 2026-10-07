@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { Flag, Loader2, X } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { submitReport } from '@/api/data'
+import { submitModule12Report } from '@/api/module12'
 import { Button, Label, Textarea } from '@/components/ui'
 
 const CATEGORIES = [
@@ -33,18 +33,26 @@ export default function ReportModal({
   reporterId,
   reportedUserId,
   productId = null,
+  messageId = null,
+  questionId = null,
+  answerId = null,
+  contextType = 'produto',
   contextLabel = '',
+  contextDescription = '',
+  initialCategory = '',
 }) {
-  const [category, setCategory] = useState('')
+  const [category, setCategory] = useState(initialCategory)
   const [description, setDescription] = useState('')
   const [sending, setSending] = useState(false)
 
+  const detailLimit = contextDescription ? 400 : 1000
+
   useEffect(() => {
     if (!open) return
-    setCategory('')
+    setCategory(initialCategory || '')
     setDescription('')
     setSending(false)
-  }, [open])
+  }, [open, initialCategory])
 
   useEffect(() => {
     if (!open) return undefined
@@ -57,6 +65,11 @@ export default function ReportModal({
     return () => document.removeEventListener('keydown', onKeyDown)
   }, [open, sending, onClose])
 
+  const automaticContext = useMemo(
+    () => String(contextDescription || '').trim(),
+    [contextDescription]
+  )
+
   if (!open) return null
 
   const send = async event => {
@@ -67,20 +80,36 @@ export default function ReportModal({
       return
     }
 
+    const combinedDescription = [
+      automaticContext,
+      description.trim(),
+    ]
+      .filter(Boolean)
+      .join('\n\n')
+      .slice(0, 1000)
+
     setSending(true)
+
     try {
-      await submitReport({
+      await submitModule12Report({
         reporterId,
         reportedUserId,
         productId,
+        messageId,
+        questionId,
+        answerId,
         category,
-        description,
+        description: combinedDescription,
+        contextType,
       })
 
       toast.success('Denúncia enviada. Obrigada por nos avisar.')
       onClose()
     } catch (error) {
-      toast.error(error.message || 'Não foi possível enviar a denúncia.')
+      toast.error(
+        error.message ||
+          'Não foi possível enviar a denúncia.'
+      )
     } finally {
       setSending(false)
     }
@@ -88,9 +117,14 @@ export default function ReportModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-6"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 px-4 py-6"
       onMouseDown={event => {
-        if (event.target === event.currentTarget && !sending) onClose()
+        if (
+          event.target === event.currentTarget &&
+          !sending
+        ) {
+          onClose()
+        }
       }}
     >
       <div
@@ -110,8 +144,11 @@ export default function ReportModal({
                 Por que você quer denunciar?
               </h2>
             </div>
+
             {contextLabel && (
-              <p className="text-sm text-gray-500">{contextLabel}</p>
+              <p className="text-sm text-gray-500">
+                {contextLabel}
+              </p>
             )}
           </div>
 
@@ -126,7 +163,16 @@ export default function ReportModal({
           </button>
         </div>
 
-        <form onSubmit={send} className="space-y-5 px-6 py-5">
+        <form
+          onSubmit={send}
+          className="space-y-5 px-6 py-5"
+        >
+          {automaticContext && (
+            <div className="rounded-xl bg-gray-50 p-3 text-xs leading-relaxed text-gray-500">
+              O contexto da mensagem será incluído automaticamente na denúncia.
+            </div>
+          )}
+
           <fieldset>
             <legend className="mb-3 text-sm font-medium text-[#0D1273]">
               Categoria
@@ -147,7 +193,9 @@ export default function ReportModal({
                     name="report-category"
                     value={option.value}
                     checked={category === option.value}
-                    onChange={() => setCategory(option.value)}
+                    onChange={() =>
+                      setCategory(option.value)
+                    }
                     className="h-4 w-4 accent-[#0D1273]"
                   />
 
@@ -159,18 +207,23 @@ export default function ReportModal({
 
           <div>
             <div className="mb-1.5 flex items-center justify-between">
-              <Label htmlFor="report-details">Detalhes (opcional)</Label>
+              <Label htmlFor="report-details">
+                Detalhes adicionais (opcional)
+              </Label>
+
               <span className="text-xs text-gray-400">
-                {description.length}/1000
+                {description.length}/{detailLimit}
               </span>
             </div>
 
             <Textarea
               id="report-details"
-              rows={5}
-              maxLength={1000}
+              rows={4}
+              maxLength={detailLimit}
               value={description}
-              onChange={event => setDescription(event.target.value)}
+              onChange={event =>
+                setDescription(event.target.value)
+              }
               placeholder="Conte o que aconteceu. Evite colocar senhas ou dados sensíveis."
             />
           </div>
@@ -185,7 +238,10 @@ export default function ReportModal({
               Cancelar
             </Button>
 
-            <Button type="submit" disabled={sending || !category}>
+            <Button
+              type="submit"
+              disabled={sending || !category}
+            >
               {sending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
