@@ -26,19 +26,20 @@ import ForgotPassword from '@/pages/ForgotPassword'
 import ResetPassword from '@/pages/ResetPassword'
 import Home from '@/pages/Home'
 import Marketplace from '@/pages/Marketplace'
-import ProductDetail from '@/pages/ProductDetailModule11'
+import ProductDetail from '@/pages/ProductDetailModule12'
 import Cart from '@/pages/Cart'
 import Checkout from '@/pages/CheckoutModule11'
 import Orders from '@/pages/OrdersModule11'
-import OrderDetail from '@/pages/OrderDetail'
+import OrderDetail from '@/pages/OrderDetailModule12'
+import ChatPage from '@/pages/ChatPage'
 import Profile from '@/pages/ProfileModule11'
 import Settings from '@/pages/Settings'
 import Sellers from '@/pages/Sellers'
 import PublicProfile from '@/pages/PublicProfileModule11'
 import Privacy from '@/pages/Privacy'
 import Terms from '@/pages/Terms'
-import AdminDashboard from '@/pages/admin/AdminDashboardModule11'
-import SellerDashboard from '@/pages/seller/SellerDashboardModule11'
+import AdminDashboard from '@/pages/admin/AdminDashboardModule12'
+import SellerDashboard from '@/pages/seller/SellerDashboardModule12'
 import ProductForm from '@/pages/seller/ProductForm'
 import NotFound from '@/pages/NotFound'
 
@@ -90,6 +91,12 @@ function Gate() {
         element={<ResetPassword />}
       />
 
+      {/* O anúncio e seu Q&A são públicos. */}
+      <Route
+        path="/product/:id"
+        element={<ProductDetail />}
+      />
+
       <Route element={<ProtectedRoute />}>
         <Route element={<AppLayout />}>
           <Route
@@ -99,10 +106,6 @@ function Gate() {
           <Route
             path="/marketplace"
             element={<Marketplace />}
-          />
-          <Route
-            path="/product/:id"
-            element={<ProductDetail />}
           />
           <Route
             path="/cart"
@@ -119,6 +122,10 @@ function Gate() {
           <Route
             path="/orders/:id"
             element={<OrderDetail />}
+          />
+          <Route
+            path="/chat/:chat_id"
+            element={<ChatPage />}
           />
           <Route
             path="/profile"
