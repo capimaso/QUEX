@@ -1,9 +1,9 @@
 import React, {
   useEffect,
-  useMemo,
   useState,
 } from 'react'
 import {
+  AlertTriangle,
   DollarSign,
   Edit,
   Eye,
@@ -119,16 +119,19 @@ function OrderModal({
 
   if (!order) return null
 
-  const delivery = order.my_delivery
-  const financial = order.seller_financial
-  const myItems = (order.items || []).filter(
-    item => Number(item.seller_id) === Number(user.id)
-  )
+  const delivery = order.my_delivery || null
+  const financial = order.seller_financial || {}
+  const myItems = Array.isArray(order.items)
+    ? order.items.filter(
+        item => Number(item.seller_id) === Number(user?.id)
+      )
+    : []
 
   const sellerStatus =
     order.seller_status ||
     delivery?.status ||
-    order.status
+    order.status ||
+    'em_preparo'
 
   const update = async nextStatus => {
     setSaving(true)
@@ -140,7 +143,10 @@ function OrderModal({
         nextStatus === 'enviado' ? tracking.trim() : ''
       )
 
-      onUpdated(updated)
+      if (updated) {
+        onUpdated(updated)
+      }
+
       setShippingOpen(false)
 
       toast.success(
@@ -149,6 +155,11 @@ function OrderModal({
           : 'Status do pedido atualizado.'
       )
     } catch (error) {
+      console.error(
+        '[QUÉX] Falha ao atualizar pedido do vendedor:',
+        error
+      )
+
       toast.error(
         error.message ||
           'Não foi possível atualizar o pedido.'
@@ -173,8 +184,10 @@ function OrderModal({
                 Pedido #{order.id}
               </h2>
               <p className="mt-1 text-sm text-gray-500">
-                {order.buyer_name} ·{' '}
-                {new Date(order.created_at).toLocaleString('pt-BR')}
+                {order.buyer_name || 'Comprador'} ·{' '}
+                {order.created_at
+                  ? new Date(order.created_at).toLocaleString('pt-BR')
+                  : 'Data indisponível'}
               </p>
             </div>
 
@@ -197,24 +210,30 @@ function OrderModal({
                 <OrderStatusBadge status={sellerStatus} />
               </div>
 
-              <div className="space-y-3">
-                {myItems.map(item => (
-                  <div
-                    key={item.id}
-                    className="flex items-center justify-between gap-3 rounded-xl bg-gray-50 p-3 text-sm"
-                  >
-                    <div>
-                      <p className="font-medium text-[#0D1273]">
-                        {item.quantity}× {item.product_name}
-                      </p>
-                      <p className="mt-1 text-xs text-gray-400">
-                        {money(item.unit_price)} por {item.unit}
-                      </p>
+              {myItems.length > 0 ? (
+                <div className="space-y-3">
+                  {myItems.map(item => (
+                    <div
+                      key={item.id}
+                      className="flex items-center justify-between gap-3 rounded-xl bg-gray-50 p-3 text-sm"
+                    >
+                      <div>
+                        <p className="font-medium text-[#0D1273]">
+                          {item.quantity}× {item.product_name}
+                        </p>
+                        <p className="mt-1 text-xs text-gray-400">
+                          {money(item.unit_price)} por {item.unit || 'un.'}
+                        </p>
+                      </div>
+                      <strong>{money(item.subtotal)}</strong>
                     </div>
-                    <strong>{money(item.subtotal)}</strong>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="rounded-xl bg-gray-50 p-3 text-sm text-gray-500">
+                  Os itens deste pedido não puderam ser carregados agora.
+                </p>
+              )}
             </section>
 
             <section className="rounded-2xl border border-gray-100 p-4">
@@ -226,18 +245,22 @@ function OrderModal({
                 <p className="mt-2 text-sm text-gray-500">
                   Retirada em mãos.
                 </p>
-              ) : (
+              ) : delivery ? (
                 <>
                   <p className="mt-2 text-sm text-gray-500">
-                    {delivery?.address || 'Endereço não informado'}
+                    {delivery.address || 'Endereço não informado'}
                   </p>
                   <p className="mt-2 text-xs text-gray-400">
-                    Frete: {money(delivery?.shipping_value)}
-                    {delivery?.distance_km != null
+                    Frete: {money(delivery.shipping_value)}
+                    {delivery.distance_km != null
                       ? ` · ${Number(delivery.distance_km).toFixed(2)} km`
                       : ''}
                   </p>
                 </>
+              ) : (
+                <p className="mt-2 text-sm text-gray-500">
+                  Os dados de entrega não estão disponíveis no momento.
+                </p>
               )}
 
               {delivery?.tracking_code && (
@@ -254,7 +277,7 @@ function OrderModal({
                   Valor dos produtos
                 </p>
                 <p className="mt-1 font-bold text-[#0D1273]">
-                  {money(financial?.product_value)}
+                  {money(financial.product_value)}
                 </p>
               </div>
 
@@ -263,7 +286,7 @@ function OrderModal({
                   Taxa retida
                 </p>
                 <p className="mt-1 font-bold text-red-600">
-                  - {money(financial?.platform_fee)}
+                  - {money(financial.platform_fee)}
                 </p>
               </div>
 
@@ -272,7 +295,7 @@ function OrderModal({
                   Líquido
                 </p>
                 <p className="mt-1 font-bold text-green-700">
-                  {money(financial?.net_value)}
+                  {money(financial.net_value)}
                 </p>
               </div>
             </section>
@@ -353,43 +376,130 @@ export default function SellerDashboardModule13() {
   const [orders, setOrders] = useState([])
   const [chats, setChats] = useState([])
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState(
-    location.pathname === '/seller/products'
-      ? 'products'
-      : 'products'
-  )
+  const [warnings, setWarnings] = useState([])
+  const [tab, setTab] = useState('products')
   const [selectedOrder, setSelectedOrder] = useState(null)
 
+  /*
+    BUG 3 — causa raiz:
+    a versão anterior chamava useMemo somente DEPOIS de retornos condicionais
+    de loading/permissão. Isso alterava a quantidade/ordem de hooks entre renders
+    e podia causar "Rendered more hooks than during the previous render".
+
+    Aqui não existe mais hook condicional. O total líquido é derivado abaixo
+    como cálculo normal, seguro mesmo com arrays vazios.
+  */
+  const netRevenue = orders
+    .filter(order => order?.status !== 'cancelado')
+    .reduce(
+      (sum, order) =>
+        sum + Number(order?.seller_financial?.net_value || 0),
+      0
+    )
+
   useEffect(() => {
-    if (!capabilities?.canSell) return
+    if (location.pathname === '/seller/products') {
+      setTab('products')
+    }
+  }, [location.pathname])
+
+  useEffect(() => {
+    if (!capabilities?.canSell) {
+      setLoading(false)
+      return
+    }
 
     let active = true
+    setLoading(true)
+    setWarnings([])
 
-    Promise.all([
-      listProducts({ activeOnly: false }),
-      listSellerOrders(),
-      listChats().catch(() => []),
-    ])
-      .then(([productRows, orderRows, chatRows]) => {
-        if (!active) return
+    const loadDashboard = async () => {
+      const results = await Promise.allSettled([
+        listProducts({ activeOnly: false }),
+        listSellerOrders(),
+        listChats(),
+      ])
+
+      if (!active) return
+
+      const nextWarnings = []
+
+      const productResult = results[0]
+      if (productResult.status === 'fulfilled') {
+        const rows = Array.isArray(productResult.value)
+          ? productResult.value
+          : []
 
         setProducts(
-          productRows.filter(
-            product => Number(product.seller_id) === Number(user.id)
+          rows.filter(
+            product =>
+              Number(product?.seller_id) === Number(user?.id)
           )
         )
-        setOrders(orderRows)
-        setChats(chatRows)
-      })
-      .catch(error =>
-        toast.error(
-          error.message ||
-            'Não foi possível carregar sua loja.'
+      } else {
+        console.error(
+          '[QUÉX] Dashboard vendedor: falha ao carregar produtos:',
+          productResult.reason
         )
+        setProducts([])
+        nextWarnings.push(
+          'Não foi possível carregar seus anúncios agora.'
+        )
+      }
+
+      const orderResult = results[1]
+      if (orderResult.status === 'fulfilled') {
+        setOrders(
+          Array.isArray(orderResult.value)
+            ? orderResult.value
+            : []
+        )
+      } else {
+        console.error(
+          '[QUÉX] Dashboard vendedor: falha ao carregar pedidos:',
+          orderResult.reason
+        )
+        setOrders([])
+        nextWarnings.push(
+          'Não foi possível carregar os pedidos recebidos agora.'
+        )
+      }
+
+      const chatResult = results[2]
+      if (chatResult.status === 'fulfilled') {
+        setChats(
+          Array.isArray(chatResult.value)
+            ? chatResult.value
+            : []
+        )
+      } else {
+        console.error(
+          '[QUÉX] Dashboard vendedor: falha ao carregar chats:',
+          chatResult.reason
+        )
+        setChats([])
+        nextWarnings.push(
+          'As conversas não puderam ser carregadas agora.'
+        )
+      }
+
+      setWarnings(nextWarnings)
+      setLoading(false)
+    }
+
+    loadDashboard().catch(error => {
+      console.error(
+        '[QUÉX] Dashboard vendedor: erro inesperado ao carregar dados:',
+        error
       )
-      .finally(() => {
-        if (active) setLoading(false)
-      })
+
+      if (active) {
+        setWarnings([
+          'Alguns dados da loja não puderam ser carregados. Tente atualizar a página.',
+        ])
+        setLoading(false)
+      }
+    })
 
     return () => {
       active = false
@@ -410,18 +520,6 @@ export default function SellerDashboardModule13() {
     )
   }
 
-  const netRevenue = useMemo(
-    () =>
-      orders
-        .filter(order => order.status !== 'cancelado')
-        .reduce(
-          (sum, order) =>
-            sum + Number(order.seller_financial?.net_value || 0),
-          0
-        ),
-    [orders]
-  )
-
   const toggle = async product => {
     try {
       const updated = await toggleProduct(
@@ -435,6 +533,10 @@ export default function SellerDashboardModule13() {
         )
       )
     } catch (error) {
+      console.error(
+        '[QUÉX] Dashboard vendedor: falha ao alterar anúncio:',
+        error
+      )
       toast.error(error.message)
     }
   }
@@ -449,11 +551,17 @@ export default function SellerDashboardModule13() {
       )
       toast.success('Produto excluído.')
     } catch (error) {
+      console.error(
+        '[QUÉX] Dashboard vendedor: falha ao remover anúncio:',
+        error
+      )
       toast.error(error.message)
     }
   }
 
   const replaceOrder = updated => {
+    if (!updated?.id) return
+
     setOrders(current =>
       current.map(order =>
         order.id === updated.id ? updated : order
@@ -505,6 +613,24 @@ export default function SellerDashboardModule13() {
             </Link>
           </div>
         </div>
+
+        {warnings.length > 0 && (
+          <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
+              <div>
+                <p className="font-semibold">
+                  Parte do painel está temporariamente indisponível.
+                </p>
+                <ul className="mt-1 list-disc space-y-1 pl-5">
+                  {warnings.map(message => (
+                    <li key={message}>{message}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="mb-8 grid gap-4 sm:grid-cols-3">
           {[
@@ -623,11 +749,13 @@ export default function SellerDashboardModule13() {
                         <Eye className="h-4 w-4" />
                       </Button>
                     </Link>
+
                     <Link to={`/seller/product/${product.id}`}>
                       <Button variant="ghost" size="sm">
                         <Edit className="h-4 w-4" />
                       </Button>
                     </Link>
+
                     <Button
                       variant="ghost"
                       size="sm"
@@ -639,6 +767,7 @@ export default function SellerDashboardModule13() {
                         <Eye className="h-4 w-4" />
                       )}
                     </Button>
+
                     <Button
                       variant="danger"
                       size="sm"
@@ -671,8 +800,10 @@ export default function SellerDashboardModule13() {
                         Pedido #{order.id}
                       </p>
                       <p className="mt-1 text-xs text-gray-400">
-                        {order.buyer_name} ·{' '}
-                        {new Date(order.created_at).toLocaleString('pt-BR')}
+                        {order.buyer_name || 'Comprador'} ·{' '}
+                        {order.created_at
+                          ? new Date(order.created_at).toLocaleString('pt-BR')
+                          : 'Data indisponível'}
                       </p>
                     </div>
 

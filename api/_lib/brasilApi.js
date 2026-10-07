@@ -3,6 +3,12 @@ import { onlyDigits, validarCPF, validarCNPJ } from './documents.js'
 const CPF_URL = cpf => `https://brasilapi.com.br/api/cpf/v1/${cpf}`
 const CNPJ_URL = cnpj => `https://brasilapi.com.br/cnpj/v1/${cnpj}`
 
+const INVALID_MESSAGE =
+  'CPF/CNPJ inválido ou não encontrado na base da Receita Federal.'
+
+const UNAVAILABLE_MESSAGE =
+  'Não foi possível validar seu documento agora. Tentaremos novamente em breve.'
+
 export class DocumentVerificationError extends Error {
   constructor(message, code = 'document_verification_error', status = 400) {
     super(message)
@@ -40,16 +46,8 @@ async function fetchJson(url, timeoutMs = 6500) {
       data,
     }
   } catch (error) {
-    if (error?.name === 'AbortError') {
-      throw new DocumentVerificationError(
-        'Não foi possível validar seu documento agora. Tentaremos novamente em breve.',
-        'verification_unavailable',
-        503
-      )
-    }
-
     throw new DocumentVerificationError(
-      'Não foi possível validar seu documento agora. Tentaremos novamente em breve.',
+      UNAVAILABLE_MESSAGE,
       'verification_unavailable',
       503
     )
@@ -58,66 +56,63 @@ async function fetchJson(url, timeoutMs = 6500) {
   }
 }
 
-function pendingResult(kind, submittedName) {
+function pendingResult(kind) {
   return {
     kind,
     verified: false,
     pending: true,
-    officialName: String(submittedName || '').trim(),
+    officialName: '',
     legalName: null,
     tradeName: null,
-    warning:
-      'Não foi possível validar seu documento agora. Tentaremos novamente em breve.',
+    warning: UNAVAILABLE_MESSAGE,
   }
 }
 
-export async function verifyDocument({
-  document,
-  submittedName = '',
-  businessName = '',
-}) {
+export async function verifyDocument({ document }) {
   const digits = onlyDigits(document)
 
   if (digits.length === 11) {
     if (!validarCPF(digits)) {
       throw new DocumentVerificationError(
-        'CPF/CNPJ inválido ou não encontrado na base da Receita Federal.',
+        INVALID_MESSAGE,
         'document_not_found',
         400
       )
     }
 
-    /*
-      A documentação pública atual da BrasilAPI não publica um endpoint de CPF.
-      Ainda assim, tentamos exatamente a rota solicitada pelo requisito.
-      Se a rota não estiver disponível (404/405/501) tratamos como indisponibilidade
-      do provedor e usamos o fallback "verificação pendente", sem inventar nome oficial.
-    */
     let response
 
     try {
       response = await fetchJson(CPF_URL(digits))
     } catch (error) {
-      if (error instanceof DocumentVerificationError) {
-        return pendingResult('cpf', submittedName)
+      if (
+        error instanceof DocumentVerificationError &&
+        error.code === 'verification_unavailable'
+      ) {
+        return pendingResult('cpf')
       }
       throw error
     }
 
+    /*
+      A rota de CPF solicitada pelo projeto não consta na documentação pública
+      atual da BrasilAPI. Quando a própria rota não existe, tratamos como
+      indisponibilidade do provedor (fallback), e NÃO como "CPF inexistente".
+    */
     if ([404, 405, 501].includes(response.status)) {
-      return pendingResult('cpf', submittedName)
+      return pendingResult('cpf')
     }
 
     if (!response.ok) {
       if ([400, 422].includes(response.status)) {
         throw new DocumentVerificationError(
-          'CPF/CNPJ inválido ou não encontrado na base da Receita Federal.',
+          INVALID_MESSAGE,
           'document_not_found',
           400
         )
       }
 
-      return pendingResult('cpf', submittedName)
+      return pendingResult('cpf')
     }
 
     const officialName = String(
@@ -128,7 +123,7 @@ export async function verifyDocument({
     ).trim()
 
     if (!officialName) {
-      return pendingResult('cpf', submittedName)
+      return pendingResult('cpf')
     }
 
     return {
@@ -145,7 +140,7 @@ export async function verifyDocument({
   if (digits.length === 14) {
     if (!validarCNPJ(digits)) {
       throw new DocumentVerificationError(
-        'CPF/CNPJ inválido ou não encontrado na base da Receita Federal.',
+        INVALID_MESSAGE,
         'document_not_found',
         400
       )
@@ -156,22 +151,25 @@ export async function verifyDocument({
     try {
       response = await fetchJson(CNPJ_URL(digits))
     } catch (error) {
-      if (error instanceof DocumentVerificationError) {
-        return pendingResult('cnpj', businessName || submittedName)
+      if (
+        error instanceof DocumentVerificationError &&
+        error.code === 'verification_unavailable'
+      ) {
+        return pendingResult('cnpj')
       }
       throw error
     }
 
-    if (response.status === 404 || response.status === 400) {
+    if ([400, 404, 422].includes(response.status)) {
       throw new DocumentVerificationError(
-        'CPF/CNPJ inválido ou não encontrado na base da Receita Federal.',
+        INVALID_MESSAGE,
         'document_not_found',
         400
       )
     }
 
     if (!response.ok) {
-      return pendingResult('cnpj', businessName || submittedName)
+      return pendingResult('cnpj')
     }
 
     const legalName = String(
@@ -180,16 +178,14 @@ export async function verifyDocument({
       ''
     ).trim()
 
+    if (!legalName) {
+      return pendingResult('cnpj')
+    }
+
     const tradeName = String(
       response.data?.nome_fantasia ||
-      businessName ||
-      submittedName ||
       legalName
     ).trim()
-
-    if (!legalName) {
-      return pendingResult('cnpj', tradeName)
-    }
 
     return {
       kind: 'cnpj',
@@ -203,7 +199,7 @@ export async function verifyDocument({
   }
 
   throw new DocumentVerificationError(
-    'CPF/CNPJ inválido ou não encontrado na base da Receita Federal.',
+    INVALID_MESSAGE,
     'document_not_found',
     400
   )

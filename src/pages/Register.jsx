@@ -17,9 +17,10 @@ import {
 import AuthLayout from '@/components/AuthLayout'
 import AddressFields from '@/components/AddressFields'
 import CpfClaimModal from '@/components/CpfClaimModal'
-import DocumentField from '@/components/DocumentField'
+import DeliverySetupFields from '@/components/DeliverySetupFields'
 import GoogleButton, { OrDivider } from '@/components/GoogleButton'
 import PasswordInput from '@/components/PasswordInput'
+import VerifiedDocumentField from '@/components/VerifiedDocumentField'
 import {
   Button,
   Input,
@@ -39,7 +40,6 @@ export default function Register() {
 
   const [role, setRole] = useState('buyer')
   const [form, setForm] = useState({
-    name: '',
     password: '',
     confirmPassword: '',
     email: '',
@@ -47,6 +47,8 @@ export default function Register() {
     cpf_cnpj: '',
     phone: '',
     business_name: '',
+    entrega_disponivel: false,
+    valor_por_km: '',
     cep: '',
     numero: '',
     complemento: '',
@@ -54,6 +56,7 @@ export default function Register() {
     uf: '',
   })
 
+  const [documentState, setDocumentState] = useState(null)
   const [cepValid, setCepValid] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -74,6 +77,42 @@ export default function Register() {
       ...address,
     }))
 
+  const handleRole = nextRole => {
+    setRole(nextRole)
+    setDocumentState(null)
+    setError('')
+    setForm(current => ({
+      ...current,
+      cpf: '',
+      cpf_cnpj: '',
+      business_name: '',
+      entrega_disponivel:
+        nextRole === 'seller'
+          ? current.entrega_disponivel
+          : false,
+      valor_por_km:
+        nextRole === 'seller'
+          ? current.valor_por_km
+          : '',
+    }))
+  }
+
+  const handleDocumentState = state => {
+    setDocumentState(state)
+
+    if (
+      state?.kind === 'cnpj' &&
+      state?.trade_name
+    ) {
+      setForm(current => ({
+        ...current,
+        business_name:
+          current.business_name ||
+          state.trade_name,
+      }))
+    }
+  }
+
   if (needsProfile) {
     return <Navigate to="/complete-profile" replace />
   }
@@ -87,10 +126,6 @@ export default function Register() {
   )
 
   const validate = () => {
-    if (!form.name.trim()) {
-      return 'Informe seu nome.'
-    }
-
     if (!form.email.trim()) {
       return 'Informe seu e-mail.'
     }
@@ -127,12 +162,54 @@ export default function Register() {
       return 'CPF inválido. Confere os números.'
     }
 
-    if (removerMascara(form.phone).length < 10) {
-      return 'Informe um telefone válido com DDD.'
+    if (!documentState) {
+      return 'Aguarde a validação do CPF/CNPJ.'
     }
 
-    if (isSeller && !form.business_name.trim()) {
-      return 'Informe o nome do estabelecimento ou nome fantasia.'
+    if (documentState.error) {
+      return (
+        documentState.message ||
+        'CPF/CNPJ inválido ou não encontrado na base da Receita Federal.'
+      )
+    }
+
+    if (
+      documentState.kind === 'cnpj' &&
+      !documentState.pending &&
+      !documentState.legal_name
+    ) {
+      return 'CPF/CNPJ inválido ou não encontrado na base da Receita Federal.'
+    }
+
+    if (
+      documentState.kind === 'cpf' &&
+      !documentState.pending &&
+      !documentState.official_name
+    ) {
+      return 'CPF/CNPJ inválido ou não encontrado na base da Receita Federal.'
+    }
+
+    if (
+      isSeller &&
+      documentState.kind === 'cnpj' &&
+      !form.business_name.trim()
+    ) {
+      return 'Informe o nome fantasia.'
+    }
+
+    if (
+      isSeller &&
+      form.entrega_disponivel &&
+      (
+        !Number.isFinite(Number(form.valor_por_km)) ||
+        Number(form.valor_por_km) <= 0
+      )
+    ) {
+      return 'Informe um valor por Km maior que zero.'
+    }
+
+    if (removerMascara(form.phone).length < 10) {
+      return 'Informe um telefone válido com DDD.'
     }
 
     if (onlyCepDigits(form.cep).length !== 8) {
@@ -156,6 +233,7 @@ export default function Register() {
 
   const submit = async event => {
     event.preventDefault()
+
     const problem = validate()
 
     if (problem) {
@@ -234,7 +312,7 @@ export default function Register() {
         <div className="mb-6 grid grid-cols-2 gap-2">
           <button
             type="button"
-            onClick={() => setRole('buyer')}
+            onClick={() => handleRole('buyer')}
             className={roleBtn(!isSeller)}
           >
             <User className="mr-2 inline h-4 w-4" />
@@ -243,7 +321,7 @@ export default function Register() {
 
           <button
             type="button"
-            onClick={() => setRole('seller')}
+            onClick={() => handleRole('seller')}
             className={roleBtn(isSeller)}
           >
             <Store className="mr-2 inline h-4 w-4" />
@@ -269,24 +347,6 @@ export default function Register() {
         )}
 
         <form onSubmit={submit} className="space-y-4">
-          <div className="space-y-2">
-            <Label>
-              {isSeller
-                ? 'Nome do responsável'
-                : 'Nome completo'}
-            </Label>
-            <Input
-              required
-              value={form.name}
-              onChange={event => set('name', event.target.value)}
-              placeholder={
-                isSeller
-                  ? 'Nome do responsável'
-                  : 'Seu nome completo'
-              }
-            />
-          </div>
-
           <div className="space-y-2">
             <Label>E-mail</Label>
             <div className="relative">
@@ -330,16 +390,56 @@ export default function Register() {
           </div>
 
           {isSeller ? (
-            <DocumentField
+            <VerifiedDocumentField
               kind="doc"
               value={form.cpf_cnpj}
               onChange={value => set('cpf_cnpj', value)}
+              onVerificationChange={handleDocumentState}
+              disabled={loading}
             />
           ) : (
-            <DocumentField
+            <VerifiedDocumentField
               kind="cpf"
               value={form.cpf}
               onChange={value => set('cpf', value)}
+              onVerificationChange={handleDocumentState}
+              disabled={loading}
+            />
+          )}
+
+          {isSeller &&
+            documentState?.kind === 'cnpj' && (
+              <div className="space-y-2">
+                <Label>Nome Fantasia</Label>
+                <div className="relative">
+                  <Store className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                  <Input
+                    className="pl-10"
+                    required
+                    value={form.business_name}
+                    onChange={event =>
+                      set('business_name', event.target.value)
+                    }
+                    placeholder="Nome usado no QUÉX"
+                  />
+                </div>
+                <p className="text-xs text-gray-400">
+                  A razão social vem da Receita Federal; somente o nome fantasia pode ser editado.
+                </p>
+              </div>
+            )}
+
+          {isSeller && (
+            <DeliverySetupFields
+              enabled={form.entrega_disponivel}
+              rate={form.valor_por_km}
+              onEnabledChange={value =>
+                set('entrega_disponivel', value)
+              }
+              onRateChange={value =>
+                set('valor_por_km', value)
+              }
+              disabled={loading}
             />
           )}
 
@@ -357,24 +457,6 @@ export default function Register() {
               />
             </div>
           </div>
-
-          {isSeller && (
-            <div className="space-y-2">
-              <Label>Nome do estabelecimento ou nome fantasia</Label>
-              <div className="relative">
-                <Store className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                <Input
-                  className="pl-10"
-                  required
-                  value={form.business_name}
-                  onChange={event =>
-                    set('business_name', event.target.value)
-                  }
-                  placeholder="Pescados do João"
-                />
-              </div>
-            </div>
-          )}
 
           <AddressFields
             value={{
@@ -402,6 +484,7 @@ export default function Register() {
         </form>
 
         <OrDivider />
+
         <GoogleButton
           label="Cadastrar com Google"
           onError={setError}

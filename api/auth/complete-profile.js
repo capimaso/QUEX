@@ -55,6 +55,17 @@ export default async function handler(req, res) {
     }
 
     const body = readBody(req)
+
+    if (
+      Object.prototype.hasOwnProperty.call(body, 'name') ||
+      Object.prototype.hasOwnProperty.call(body, 'nome')
+    ) {
+      return badRequest(
+        res,
+        'O nome é obtido automaticamente pela validação do CPF/CNPJ.'
+      )
+    }
+
     const parsed = validateProfile(body)
 
     if (parsed.error) {
@@ -62,6 +73,7 @@ export default async function handler(req, res) {
     }
 
     let profile
+
     try {
       profile = await verifyProfileAddress(parsed.value)
     } catch (error) {
@@ -69,7 +81,10 @@ export default async function handler(req, res) {
         return json(
           res,
           error.code === 'viacep_unavailable' ? 503 : 400,
-          { error: error.message, code: error.code }
+          {
+            error: error.message,
+            code: error.code,
+          }
         )
       }
       throw error
@@ -78,17 +93,7 @@ export default async function handler(req, res) {
     const inUse = await documentInUse(profile)
     if (inUse) return badRequest(res, inUse)
 
-    const meta = authUser.user_metadata || {}
     const email = String(authUser.email || '').toLowerCase()
-    const submittedName = String(
-      body.name ||
-      meta.full_name ||
-      meta.name ||
-      email.split('@')[0] ||
-      'Usuário'
-    )
-      .trim()
-      .slice(0, 100)
 
     const document =
       profile.role === 'buyer'
@@ -100,8 +105,6 @@ export default async function handler(req, res) {
     try {
       documentVerification = await verifyDocument({
         document,
-        submittedName,
-        businessName: profile.businessName,
       })
     } catch (error) {
       if (error instanceof DocumentVerificationError) {
@@ -113,14 +116,30 @@ export default async function handler(req, res) {
       throw error
     }
 
-    const accountName =
-      documentVerification.kind === 'cpf'
-        ? documentVerification.officialName || submittedName
-        : documentVerification.tradeName || profile.businessName || submittedName
+    if (
+      documentVerification.kind === 'cnpj' &&
+      !documentVerification.pending &&
+      !documentVerification.legalName
+    ) {
+      return badRequest(
+        res,
+        'CPF/CNPJ inválido ou não encontrado na base da Receita Federal.'
+      )
+    }
+
+    if (
+      documentVerification.kind === 'cpf' &&
+      !documentVerification.pending &&
+      !documentVerification.officialName
+    ) {
+      return badRequest(
+        res,
+        'CPF/CNPJ inválido ou não encontrado na base da Receita Federal.'
+      )
+    }
 
     const novo = await createAccount({
       authUserId: authUser.id,
-      name: accountName,
       email,
       active: true,
       profile,
@@ -129,8 +148,11 @@ export default async function handler(req, res) {
 
     return created(res, {
       user: await buildPublicUser(novo, extras),
-      document_verification_pending: Boolean(documentVerification.pending),
-      verification_warning: documentVerification.warning || null,
+      document_verification_pending: Boolean(
+        documentVerification.pending
+      ),
+      verification_warning:
+        documentVerification.warning || null,
     })
   } catch (error) {
     return serverError(res, error)

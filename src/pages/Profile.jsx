@@ -22,6 +22,7 @@ import AddressFields from '@/components/AddressFields'
 import AvatarUploader from '@/components/AvatarUploader'
 import DocumentField from '@/components/DocumentField'
 import PasswordInput from '@/components/PasswordInput'
+import SellerFreightSettings from '@/components/SellerFreightSettings'
 import {
   Button,
   Input,
@@ -125,13 +126,13 @@ export default function Profile() {
     try {
       await updateProfile({
         ...form,
-        // documento vai para o backend apenas para conferência de imutabilidade
         cpf: user?.cpf || '',
         cpf_cnpj: user?.cpf_cnpj || '',
       })
       await refreshUser()
       toast.success('Perfil atualizado.')
     } catch (error) {
+      console.error('[QUÉX] Falha ao atualizar perfil:', error)
       toast.error(error.message)
     } finally {
       setSaving(false)
@@ -210,6 +211,7 @@ export default function Profile() {
         </div>
       )}
 
+      {/* Informações básicas: foto, nome, bio e contato. */}
       <div className={card}>
         <AvatarUploader
           user={user}
@@ -222,9 +224,7 @@ export default function Profile() {
             await refreshUser()
           }}
         />
-      </div>
 
-      <div className={card}>
         <div>
           <Label>E-mail</Label>
           <Input
@@ -319,6 +319,43 @@ export default function Profile() {
           />
         )}
 
+        <div>
+          <div className="flex items-center justify-between">
+            <Label>Biografia</Label>
+            <span className="text-xs text-gray-400">
+              {form.bio.length}/{BIO_MAX}
+            </span>
+          </div>
+
+          <Textarea
+            className="mt-1.5"
+            rows={4}
+            maxLength={BIO_MAX}
+            value={form.bio}
+            onChange={event => set('bio', event.target.value)}
+            placeholder="Conte um pouco sobre você."
+          />
+        </div>
+      </div>
+
+      {/* BUG 5: entrega fica logo após as informações básicas. */}
+      {isSeller && (
+        <div className="mb-6">
+          <SellerFreightSettings embedded />
+        </div>
+      )}
+
+      {/* Endereço e demais configurações ficam abaixo da entrega. */}
+      <div className={card}>
+        <div>
+          <h2 className="font-heading text-lg font-bold text-[#0D1273]">
+            Endereço
+          </h2>
+          <p className="mt-1 text-sm text-gray-500">
+            Usado para localização e cálculo de rota.
+          </p>
+        </div>
+
         <AddressFields
           value={{
             cep: form.cep,
@@ -337,24 +374,6 @@ export default function Profile() {
           disabled={saving}
         />
 
-        <div>
-          <div className="flex items-center justify-between">
-            <Label>Biografia</Label>
-            <span className="text-xs text-gray-400">
-              {form.bio.length}/{BIO_MAX}
-            </span>
-          </div>
-
-          <Textarea
-            className="mt-1.5"
-            rows={4}
-            maxLength={BIO_MAX}
-            value={form.bio}
-            onChange={event => set('bio', event.target.value)}
-            placeholder="Conte um pouco sobre você."
-          />
-        </div>
-
         {isSeller && (
           <label className="flex items-center justify-between rounded-xl border border-gray-100 p-4">
             <span>
@@ -362,7 +381,7 @@ export default function Profile() {
                 Entrega própria
               </span>
               <span className="mt-1 block text-xs text-gray-400">
-                Marque caso faça a própria entrega.
+                Informação complementar do perfil da loja.
               </span>
             </span>
 

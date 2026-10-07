@@ -13,7 +13,14 @@ class Boundary extends React.Component {
   }
 
   componentDidCatch(error, info) {
-    console.error('[QUÉX] Erro de renderização capturado:', error, info)
+    console.error('[QUÉX] ErrorBoundary capturou um erro de renderização', {
+      error,
+      message: error?.message,
+      stack: error?.stack,
+      componentStack: info?.componentStack,
+      route: this.props.resetKey,
+      timestamp: new Date().toISOString(),
+    })
   }
 
   componentDidUpdate(prevProps) {
@@ -68,6 +75,7 @@ class Boundary extends React.Component {
               <summary className="cursor-pointer text-xs font-medium text-gray-500">
                 Detalhes para desenvolvimento
               </summary>
+
               <pre className="mt-2 overflow-auto whitespace-pre-wrap break-words text-xs text-red-600">
                 {String(this.state.error?.stack || this.state.error)}
               </pre>

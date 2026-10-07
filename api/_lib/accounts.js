@@ -17,6 +17,15 @@ export function validateProfile(body) {
   const cep = onlyDigits(body.cep)
   const numero = clean(body.numero)
   const complemento = clean(body.complemento)
+  const deliveryAvailable = Boolean(body.entrega_disponivel)
+
+  const rawRate = body.valor_por_km
+  const valuePerKm =
+    rawRate === '' ||
+    rawRate === null ||
+    rawRate === undefined
+      ? null
+      : Number(rawRate)
 
   if (phoneDigits < 10 || phoneDigits > 13) {
     return { error: 'Informe um telefone válido com DDD.' }
@@ -41,8 +50,23 @@ export function validateProfile(body) {
       }
     }
 
-    if (!businessName) {
-      return { error: 'Informe o nome do estabelecimento ou da pessoa.' }
+    if (
+      deliveryAvailable &&
+      (!Number.isFinite(valuePerKm) || valuePerKm <= 0)
+    ) {
+      return {
+        error:
+          'Informe um valor por quilômetro maior que zero para oferecer entrega.',
+      }
+    }
+
+    if (
+      valuePerKm !== null &&
+      (!Number.isFinite(valuePerKm) || valuePerKm <= 0)
+    ) {
+      return {
+        error: 'O valor por quilômetro deve ser maior que zero.',
+      }
     }
   }
 
@@ -72,6 +96,11 @@ export function validateProfile(body) {
       cep,
       numero,
       complemento,
+      deliveryAvailable,
+      valuePerKm:
+        deliveryAvailable && valuePerKm != null
+          ? Math.round((valuePerKm + Number.EPSILON) * 100) / 100
+          : null,
     },
   }
 }
@@ -130,34 +159,40 @@ export async function documentInUse({ role, cpf, cpfCnpj }) {
 
 export async function createAccount({
   authUserId,
-  name,
   email,
   active,
   profile,
-  documentVerification = null,
+  documentVerification,
 }) {
-  const kind =
-    documentVerification?.kind ||
-    (
-      profile.role === 'seller' && profile.cpfCnpj?.length === 14
-        ? 'cnpj'
-        : 'cpf'
-    )
+  if (!documentVerification?.kind) {
+    throw new Error('A verificação do documento é obrigatória.')
+  }
 
-  const finalName =
+  const kind = documentVerification.kind
+  const pending = Boolean(documentVerification.pending)
+
+  const officialName =
     kind === 'cpf'
-      ? (
-          documentVerification?.officialName ||
-          name
-        )
-      : (
-          documentVerification?.tradeName ||
+      ? String(documentVerification.officialName || '').trim()
+      : String(documentVerification.legalName || '').trim()
+
+  const tradeName =
+    kind === 'cnpj'
+      ? String(
           profile.businessName ||
-          name
-        )
+          documentVerification.tradeName ||
+          documentVerification.legalName ||
+          ''
+        ).trim()
+      : ''
+
+  const accountName =
+    kind === 'cpf'
+      ? officialName
+      : tradeName
 
   const usuario = await insertOne('usuario', {
-    nome: finalName,
+    nome: accountName,
     email,
     senha: SENHA_MARCADOR,
     telefone: profile.phone,
@@ -175,10 +210,16 @@ export async function createAccount({
     is_active: Boolean(active),
     razao_social:
       kind === 'cnpj'
-        ? documentVerification?.legalName || null
+        ? String(documentVerification.legalName || '').trim() || null
         : null,
+    /*
+      CPF sempre permanece bloqueado para edição manual.
+      Se a validação externa ficar pendente, o nome fica vazio até uma
+      revalidação posterior; o cliente nunca injeta um nome arbitrário.
+      CNPJ mantém apenas o nome fantasia editável.
+    */
     nome_imutavel: kind === 'cpf',
-    verificacao_pendente: Boolean(documentVerification?.pending),
+    verificacao_pendente: pending,
   })
 
   try {
@@ -192,14 +233,14 @@ export async function createAccount({
         id: usuario.id,
         comercial:
           kind === 'cnpj'
-            ? (
-                documentVerification?.tradeName ||
-                profile.businessName
-              )
-            : profile.businessName,
+            ? tradeName
+            : officialName,
         entrega_propria: false,
-        entrega_disponivel: false,
-        valor_por_km: null,
+        entrega_disponivel: Boolean(profile.deliveryAvailable),
+        valor_por_km:
+          profile.deliveryAvailable
+            ? profile.valuePerKm
+            : null,
         cpf_cnpj: profile.cpfCnpj,
         localizacao: profile.localizacao,
       })
