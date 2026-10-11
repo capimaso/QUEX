@@ -463,6 +463,8 @@ async function resolveAddress(user, body) {
     'cep',
     'numero',
     'complemento',
+    'rua',
+    'bairro',
   ].some(key =>
     Object.prototype.hasOwnProperty.call(body, key)
   )
@@ -470,6 +472,12 @@ async function resolveAddress(user, body) {
   const submittedCep = digits(body.cep)
   const submittedNumero = clean(body.numero)
   const submittedComplemento = clean(body.complemento)
+  const submittedRua = clean(
+    body.rua !== undefined ? body.rua : user.rua
+  )
+  const submittedBairro = clean(
+    body.bairro !== undefined ? body.bairro : user.bairro
+  )
 
   if (
     !addressSent ||
@@ -477,6 +485,8 @@ async function resolveAddress(user, body) {
       !submittedCep &&
       !submittedNumero &&
       !submittedComplemento &&
+      !submittedRua &&
+      !submittedBairro &&
       !user.cep &&
       !user.numero
     )
@@ -485,6 +495,8 @@ async function resolveAddress(user, body) {
       cep: user.cep || null,
       numero: user.numero || null,
       complemento: user.complemento || null,
+      rua: user.rua || null,
+      bairro: user.bairro || null,
       cidade: user.cidade || null,
       uf: user.uf || null,
       lat: user.lat == null ? null : Number(user.lat),
@@ -515,6 +527,8 @@ async function resolveAddress(user, body) {
       ? body.complemento
       : user.complemento
   )
+  const rua = submittedRua
+  const bairro = submittedBairro
 
   if (!/^\d{8}$/.test(cep)) {
     throw new ViaCepError(
@@ -544,14 +558,28 @@ async function resolveAddress(user, body) {
     )
   }
 
+  if (!rua || rua.length > 180) {
+    throw new ViaCepError(
+      'Informe uma rua válida com até 180 caracteres.',
+      'invalid_address'
+    )
+  }
+
+  if (!bairro || bairro.length > 120) {
+    throw new ViaCepError(
+      'Informe um bairro válido com até 120 caracteres.',
+      'invalid_address'
+    )
+  }
+
   const cepData = await lookupCep(cep)
   const localizacao = `${cepData.cidade} - ${cepData.uf}`
 
   const geo = await tryGeocodeAddress({
     cep: cepData.cep,
     numero,
-    logradouro: cepData.logradouro,
-    bairro: cepData.bairro,
+    logradouro: rua,
+    bairro,
     cidade: cepData.cidade,
     uf: cepData.uf,
   })
@@ -560,6 +588,8 @@ async function resolveAddress(user, body) {
     cep: cepData.cep,
     numero,
     complemento: complemento || null,
+    rua,
+    bairro,
     cidade: cepData.cidade,
     uf: cepData.uf,
     lat: geo.lat,
@@ -569,7 +599,11 @@ async function resolveAddress(user, body) {
     endereco: buildStoredAddress({
       numero,
       complemento,
-      cepData,
+      cepData: {
+        ...cepData,
+        logradouro: rua,
+        bairro,
+      },
     }),
   }
 }
@@ -694,6 +728,8 @@ async function updateProfile(res, user, body) {
       cep: address.cep,
       numero: address.numero,
       complemento: address.complemento,
+      rua: address.rua,
+      bairro: address.bairro,
       cidade: address.cidade,
       uf: address.uf,
       lat: address.lat,

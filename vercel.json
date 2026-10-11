@@ -128,7 +128,7 @@
       "destination": "/api/admin/index?resource=claims"
     },
     {
-      "source": "/(.*)",
+      "source": "/((?!api/|src/|node_modules/|@vite/|@id/|@fs/|@react-refresh|.*\\.).*)",
       "destination": "/index.html"
     }
   ]

@@ -40,6 +40,8 @@ export async function lookupCep(rawCep) {
       cep,
       cidade: String(data.localidade).trim(),
       uf: String(data.uf).trim().toUpperCase(),
+      rua: String(data.logradouro || '').trim(),
+      bairro: String(data.bairro || '').trim(),
     }
   } catch (error) {
     if (error?.name === 'AbortError') {

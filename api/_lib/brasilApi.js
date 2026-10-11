@@ -1,6 +1,5 @@
 import { onlyDigits, validarCPF, validarCNPJ } from './documents.js'
 
-const CPF_URL = cpf => `https://brasilapi.com.br/api/cpf/v1/${cpf}`
 const CNPJ_URL = cnpj => `https://brasilapi.com.br/cnpj/v1/${cnpj}`
 
 const INVALID_MESSAGE =
@@ -80,57 +79,12 @@ export async function verifyDocument({ document }) {
       )
     }
 
-    let response
-
-    try {
-      response = await fetchJson(CPF_URL(digits))
-    } catch (error) {
-      if (
-        error instanceof DocumentVerificationError &&
-        error.code === 'verification_unavailable'
-      ) {
-        return pendingResult('cpf')
-      }
-      throw error
-    }
-
-    /*
-      A rota de CPF solicitada pelo projeto não consta na documentação pública
-      atual da BrasilAPI. Quando a própria rota não existe, tratamos como
-      indisponibilidade do provedor (fallback), e NÃO como "CPF inexistente".
-    */
-    if ([404, 405, 501].includes(response.status)) {
-      return pendingResult('cpf')
-    }
-
-    if (!response.ok) {
-      if ([400, 422].includes(response.status)) {
-        throw new DocumentVerificationError(
-          INVALID_MESSAGE,
-          'document_not_found',
-          400
-        )
-      }
-
-      return pendingResult('cpf')
-    }
-
-    const officialName = String(
-      response.data?.nome ||
-      response.data?.nome_completo ||
-      response.data?.name ||
-      ''
-    ).trim()
-
-    if (!officialName) {
-      return pendingResult('cpf')
-    }
-
+    // CPF usa apenas validação matemática; nunca consulta nome externo.
     return {
       kind: 'cpf',
       verified: true,
       pending: false,
-      officialName,
+      officialName: '',
       legalName: null,
       tradeName: null,
       warning: null,

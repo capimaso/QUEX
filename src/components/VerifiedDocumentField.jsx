@@ -51,13 +51,30 @@ export default function VerifiedDocumentField({
   useEffect(() => {
     setResult(null)
     setError('')
+    setLoading(false)
     onVerificationChange?.(null)
+
+    const requestId = ++requestRef.current
 
     if (!complete || !locallyValid) {
       return undefined
     }
 
-    const requestId = ++requestRef.current
+    if (digits.length === 11) {
+      const data = {
+        kind: 'cpf',
+        verified: true,
+        pending: false,
+        official_name: '',
+        legal_name: '',
+        trade_name: '',
+        warning: null,
+      }
+      setResult(data)
+      onVerificationChange?.(data)
+      return undefined
+    }
+
     const timer = window.setTimeout(async () => {
       setLoading(true)
 

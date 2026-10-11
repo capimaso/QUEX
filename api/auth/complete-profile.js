@@ -56,16 +56,6 @@ export default async function handler(req, res) {
 
     const body = readBody(req)
 
-    if (
-      Object.prototype.hasOwnProperty.call(body, 'name') ||
-      Object.prototype.hasOwnProperty.call(body, 'nome')
-    ) {
-      return badRequest(
-        res,
-        'O nome é obtido automaticamente pela validação do CPF/CNPJ.'
-      )
-    }
-
     const parsed = validateProfile(body)
 
     if (parsed.error) {
@@ -120,17 +110,6 @@ export default async function handler(req, res) {
       documentVerification.kind === 'cnpj' &&
       !documentVerification.pending &&
       !documentVerification.legalName
-    ) {
-      return badRequest(
-        res,
-        'CPF/CNPJ inválido ou não encontrado na base da Receita Federal.'
-      )
-    }
-
-    if (
-      documentVerification.kind === 'cpf' &&
-      !documentVerification.pending &&
-      !documentVerification.officialName
     ) {
       return badRequest(
         res,

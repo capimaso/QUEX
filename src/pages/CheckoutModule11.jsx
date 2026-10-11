@@ -307,6 +307,37 @@ export default function CheckoutModule11() {
         </div>
       )}
 
+      <section className="mb-6 rounded-2xl border border-gray-100 bg-white p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="font-semibold text-[#0D1273]">
+              Endereço de entrega
+            </h2>
+            <p className="mt-2 text-sm text-gray-600">
+              {[
+                quote?.delivery_address?.rua,
+                quote?.delivery_address?.numero
+                  ? 'nº ' + quote.delivery_address.numero
+                  : '',
+                quote?.delivery_address?.complemento,
+                quote?.delivery_address?.bairro,
+                quote?.delivery_address?.cidade,
+                quote?.delivery_address?.uf,
+                quote?.delivery_address?.cep
+                  ? 'CEP ' + quote.delivery_address.cep
+                  : '',
+              ].filter(Boolean).join(', ') || 'Endereço ainda não informado.'}
+            </p>
+          </div>
+          <Link
+            to="/profile"
+            className="text-sm font-semibold text-[#0D1273] hover:underline"
+          >
+            Alterar endereço
+          </Link>
+        </div>
+      </section>
+
       <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
         <div className="space-y-5">
           {groups.map(group => {

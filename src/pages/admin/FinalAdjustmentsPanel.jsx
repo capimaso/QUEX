@@ -643,6 +643,12 @@ export default function FinalAdjustmentsPanel() {
                   <p className="text-xs text-gray-400">
                     {delivery.tipo_frete || 'entrega'}
                   </p>
+                  {delivery.tipo_frete !== 'retirada' &&
+                    delivery.endereco_destino && (
+                      <p className="mt-1 max-w-xl text-xs text-gray-500">
+                        {delivery.endereco_destino}
+                      </p>
+                    )}
                 </div>
 
                 <OrderStatusBadge status={delivery.status} />

@@ -92,13 +92,15 @@ export function publicUser(user, extras = {}) {
     phone: user.telefone || '',
     address: user.endereco || '',
     cep: user.cep || '',
+    rua: user.rua || '',
+    bairro: user.bairro || '',
     numero: user.numero || '',
     complemento: user.complemento || '',
     cidade: user.cidade || '',
     uf: user.uf || '',
     lat: user.lat == null ? null : Number(user.lat),
     lng: user.lng == null ? null : Number(user.lng),
-    birth_date: user.data_nasc || null,
+    birth_date: user.data_nascimento || user.data_nasc || null,
     bio: user.bio || '',
     localizacao:
       user.cidade && user.uf

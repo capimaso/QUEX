@@ -47,6 +47,8 @@ const EMPTY = {
   cep: '',
   numero: '',
   complemento: '',
+  rua: '',
+  bairro: '',
   cidade: '',
   uf: '',
 }
@@ -91,6 +93,8 @@ export default function Profile() {
       cep: user.cep || '',
       numero: user.numero || '',
       complemento: user.complemento || '',
+      rua: user.rua || '',
+      bairro: user.bairro || '',
       cidade: user.cidade || '',
       uf: user.uf || '',
     })
@@ -104,6 +108,8 @@ export default function Profile() {
     const hasAnyAddress = Boolean(
       form.cep ||
       form.numero ||
+      form.rua ||
+      form.bairro ||
       form.cidade ||
       form.uf
     )
@@ -113,7 +119,9 @@ export default function Profile() {
       (
         onlyCepDigits(form.cep).length !== 8 ||
         !cepValid ||
-        !form.numero.trim()
+        !form.numero.trim() ||
+        !form.rua.trim() ||
+        !form.bairro.trim()
       )
     ) {
       return toast.error(
@@ -231,6 +239,17 @@ export default function Profile() {
             value={user?.email || ''}
             disabled
             className="mt-1.5 bg-gray-50"
+          />
+        </div>
+
+        <div>
+          <Label>Data de Nascimento</Label>
+          <Input
+            className="mt-1.5 bg-gray-50"
+            type="date"
+            value={user?.birth_date || ''}
+            readOnly
+            aria-label="Data de Nascimento"
           />
         </div>
 
@@ -361,6 +380,8 @@ export default function Profile() {
             cep: form.cep,
             numero: form.numero,
             complemento: form.complemento,
+            rua: form.rua,
+            bairro: form.bairro,
             cidade: form.cidade,
             uf: form.uf,
           }}

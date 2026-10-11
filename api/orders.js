@@ -1027,6 +1027,16 @@ async function checkoutQuote(req, res) {
     taxa_percentual: config.taxa_percentual,
     taxa_servico: serviceFee,
     taxa_cobrada_do_comprador: false,
+    delivery_address: {
+      rua: buyer.rua || '',
+      bairro: buyer.bairro || '',
+      numero: buyer.numero || '',
+      complemento: buyer.complemento || '',
+      cep: buyer.cep || '',
+      cidade: buyer.cidade || '',
+      uf: buyer.uf || '',
+      full: buyer.endereco || '',
+    },
     vendedores: snapshot.sellers,
   })
 }

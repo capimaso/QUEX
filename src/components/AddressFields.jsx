@@ -56,11 +56,15 @@ export default function AddressFields({
 
       if (
         value.cidade ||
-        value.uf
+        value.uf ||
+        value.rua ||
+        value.bairro
       ) {
         patch({
           cidade: '',
           uf: '',
+          rua: '',
+          bairro: '',
         })
       }
 
@@ -69,10 +73,12 @@ export default function AddressFields({
     }
 
     if (
-      lastVerifiedCepRef.current ===
-        digits &&
       value.cidade &&
-      value.uf
+      value.uf &&
+      (
+        lastVerifiedCepRef.current === digits ||
+        (value.rua && value.bairro)
+      )
     ) {
       setCepError('')
       setChecking(false)
@@ -103,6 +109,8 @@ export default function AddressFields({
           cep: formatCep(
             result.cep
           ),
+          rua: result.rua,
+          bairro: result.bairro,
           cidade:
             result.cidade,
           uf: result.uf,
@@ -122,6 +130,8 @@ export default function AddressFields({
           ''
 
         patch({
+          rua: '',
+          bairro: '',
           cidade: '',
           uf: '',
         })
@@ -151,7 +161,7 @@ export default function AddressFields({
         </h3>
 
         <p className="mt-1 text-xs leading-relaxed text-gray-500">
-          Cidade e UF são confirmadas automaticamente pelo CEP. CEP, número e complemento nunca aparecem no perfil público.
+          Rua, bairro, cidade e UF são preenchidos pelo CEP quando disponíveis. Confira os campos; rua e bairro são obrigatórios e o endereço completo não aparece no perfil público.
         </p>
       </div>
 
@@ -189,6 +199,8 @@ export default function AddressFields({
 
                 patch({
                   cep: next,
+                  rua: '',
+                  bairro: '',
                   cidade: '',
                   uf: '',
                 })
@@ -231,6 +243,36 @@ export default function AddressFields({
             }
             placeholder="Ex.: 120"
             maxLength={30}
+            disabled={disabled}
+            required
+          />
+        </div>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label>Rua</Label>
+          <Input
+            value={value.rua || ''}
+            onChange={event =>
+              patch({ rua: event.target.value })
+            }
+            placeholder="Preenchida pelo CEP; edite se necessário"
+            maxLength={180}
+            disabled={disabled}
+            required
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>Bairro</Label>
+          <Input
+            value={value.bairro || ''}
+            onChange={event =>
+              patch({ bairro: event.target.value })
+            }
+            placeholder="Preenchido pelo CEP; edite se necessário"
+            maxLength={120}
             disabled={disabled}
             required
           />

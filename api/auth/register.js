@@ -116,21 +116,6 @@ export default async function handler(req, res) {
     try {
       const body = readBody(req)
 
-      /*
-        BUG 1: o nome não é mais aceito como fonte de verdade do cadastro.
-        Um cliente antigo que ainda tente enviar "name" recebe erro claro,
-        evitando que o backend grave um nome arbitrário.
-      */
-      if (
-        Object.prototype.hasOwnProperty.call(body, 'name') ||
-        Object.prototype.hasOwnProperty.call(body, 'nome')
-      ) {
-        return badRequest(
-          res,
-          'O nome é obtido automaticamente pela validação do CPF/CNPJ.'
-        )
-      }
-
       const email = clean(body.email).toLowerCase()
       const password = String(body.password || '')
 
@@ -200,8 +185,8 @@ export default async function handler(req, res) {
 
       try {
         /*
-          A pré-validação da tela NÃO é confiada.
-          O backend consulta o provedor novamente no momento do cadastro.
+          CPF é revalidado matematicamente; a BrasilAPI só é consultada
+          para CNPJ no momento do cadastro.
         */
         documentVerification = await verifyDocument({
           document,
@@ -228,20 +213,9 @@ export default async function handler(req, res) {
         )
       }
 
-      if (
-        documentVerification.kind === 'cpf' &&
-        !documentVerification.pending &&
-        !documentVerification.officialName
-      ) {
-        return badRequest(
-          res,
-          'CPF/CNPJ inválido ou não encontrado na base da Receita Federal.'
-        )
-      }
-
       const authFullName =
         documentVerification.kind === 'cpf'
-          ? documentVerification.officialName || ''
+          ? profile.name
           : (
               profile.businessName ||
               documentVerification.tradeName ||

@@ -27,6 +27,10 @@ import {
 } from '@/lib/validation/cpf'
 import { validarCNPJ } from '@/lib/validation/cnpj'
 import { onlyCepDigits } from '@/lib/viacep'
+import {
+  validateBirthDate,
+  validatePersonName,
+} from '@/lib/validation/profile'
 
 export default function CompleteProfile() {
   const navigate = useNavigate()
@@ -41,6 +45,8 @@ export default function CompleteProfile() {
   const [role, setRole] = useState('buyer')
 
   const [form, setForm] = useState({
+    name: '',
+    birth_date: '',
     cpf: '',
     cpf_cnpj: '',
     phone: '',
@@ -52,6 +58,8 @@ export default function CompleteProfile() {
     complemento: '',
     cidade: '',
     uf: '',
+    rua: '',
+    bairro: '',
   })
 
   const [documentState, setDocumentState] = useState(null)
@@ -60,6 +68,11 @@ export default function CompleteProfile() {
   const [loading, setLoading] = useState(false)
 
   const isSeller = role === 'seller'
+  const currentCpf = removerMascara(
+    isSeller ? form.cpf_cnpj : form.cpf
+  )
+  const requiresPersonalName =
+    !isSeller || currentCpf.length === 11
 
   const set = (key, value) =>
     setForm(current => ({
@@ -142,6 +155,14 @@ export default function CompleteProfile() {
       return 'CPF inválido. Confere os números.'
     }
 
+    const birthDateError = validateBirthDate(form.birth_date)
+    if (birthDateError) return birthDateError
+
+    if (requiresPersonalName) {
+      const nameError = validatePersonName(form.name)
+      if (nameError) return nameError
+    }
+
     if (!documentState) {
       return 'Aguarde a validação do CPF/CNPJ.'
     }
@@ -186,6 +207,14 @@ export default function CompleteProfile() {
 
     if (!form.numero.trim()) {
       return 'Informe o número do endereço.'
+    }
+
+    if (!form.rua.trim()) {
+      return 'Informe a rua do endereço.'
+    }
+
+    if (!form.bairro.trim()) {
+      return 'Informe o bairro do endereço.'
     }
 
     if (!form.cidade || !form.uf) {
@@ -327,6 +356,34 @@ export default function CompleteProfile() {
             </div>
           )}
 
+        {requiresPersonalName && (
+          <div className="space-y-2">
+            <Label>Nome completo</Label>
+            <Input
+              required
+              autoComplete="name"
+              maxLength={100}
+              value={form.name}
+              onChange={event => set('name', event.target.value)}
+              placeholder="Nome e sobrenome"
+            />
+            <p className="text-xs text-gray-400">
+              Informe pelo menos duas palavras, usando somente letras e espaços.
+            </p>
+          </div>
+        )}
+
+        <div className="space-y-2">
+          <Label>Data de Nascimento</Label>
+          <Input
+            type="date"
+            required
+            autoComplete="bday"
+            value={form.birth_date}
+            onChange={event => set('birth_date', event.target.value)}
+          />
+        </div>
+
         {isSeller && (
           <DeliverySetupFields
             enabled={form.entrega_disponivel}
@@ -365,6 +422,8 @@ export default function CompleteProfile() {
             cep: form.cep,
             numero: form.numero,
             complemento: form.complemento,
+            rua: form.rua,
+            bairro: form.bairro,
             cidade: form.cidade,
             uf: form.uf,
           }}
