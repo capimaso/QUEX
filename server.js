@@ -112,6 +112,65 @@ app.post(
   }
 );
 
+app.put(
+  "/api/produtos/:id",
+  validarProduto,
+  (requisicao, resposta) => {
+    const id = Number(requisicao.params.id);
+    const produto = produtos.find((item) => item.id === id);
+
+    if (!produto) {
+      return resposta.status(404).json({
+        mensagem: "Produto não encontrado."
+      });
+    }
+
+    const { nome, preco, vendedor, especie } = requisicao.body;
+
+    produto.nome = nome.trim();
+    produto.preco = Number(preco);
+    produto.vendedor = vendedor.trim();
+    produto.especie = especie.trim();
+
+    return resposta.status(200).json({
+      mensagem: "Produto atualizado com sucesso.",
+      produto
+    });
+  }
+);
+
+app.delete("/api/produtos/:id", (requisicao, resposta) => {
+  const id = Number(requisicao.params.id);
+
+  const indiceProduto = produtos.findIndex(
+    (item) => item.id === id
+  );
+
+  if (indiceProduto === -1) {
+    return resposta.status(404).json({
+      mensagem: "Produto não encontrado."
+    });
+  }
+
+  const [produtoRemovido] = produtos.splice(
+    indiceProduto,
+    1
+  );
+
+  return resposta.status(200).json({
+    mensagem: "Produto removido com sucesso.",
+    produto: produtoRemovido
+  });
+});
+
+// Este middleware deve ficar depois de todas as rotas.
+app.use((requisicao, resposta) => {
+  return resposta.status(404).json({
+    mensagem: "Rota não encontrada."
+  });
+});
+
 app.listen(PORTA, () => {
   console.log(`Servidor QUÉX rodando em http://localhost:${PORTA}`);
 });
+

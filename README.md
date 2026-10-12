@@ -53,11 +53,13 @@ Para encerrar o servidor, pressione `Ctrl + C` no terminal.
 
 ## Endpoints da API
 
-| VERBO | ENDPOINT (URL) | AÇÃO EXECUTADA |
+| VERBO | ENDPOINT | AÇÃO EXECUTADA |
 | --- | --- | --- |
-| GET | `/api/produtos` | Retorna uma lista mockada de pescados cadastrados. |
-| GET | `/api/produtos/:id` | Retorna um pescado específico pelo seu identificador. |
-| POST | `/api/produtos` | Cadastra um novo pescado na lista mockada. |
+| GET | `/api/produtos` | Retorna todos os produtos. |
+| GET | `/api/produtos/:id` | Retorna um produto pelo ID. |
+| POST | `/api/produtos` | Cadastra um novo produto. |
+| PUT | `/api/produtos/:id` | Atualiza um produto existente. |
+| DELETE | `/api/produtos/:id` | Remove um produto existente. |
 
 ### GET `/api/produtos`
 
@@ -175,3 +177,16 @@ Nesta primeira versão, os produtos ficam armazenados apenas em memória. Portan
 ## Versionamento
 
 O projeto é versionado no GitHub. Cada integrante realizou commits com a própria conta para registrar sua participação no desenvolvimento do QUÉX.
+
+## Testes da API v2
+
+| # | Método | URL | Body | Resultado esperado |
+| --- | --- | --- | --- | --- |
+| 1 | GET | `/api/produtos` | — | `200` e lista de produtos |
+| 2 | GET | `/api/produtos/1` | — | `200` e produto encontrado |
+| 3 | GET | `/api/produtos/999` | — | `404` |
+| 4 | POST | `/api/produtos` | Produto válido | `201` |
+| 5 | POST | `/api/produtos` | `{}` | `400` |
+| 6 | PUT | `/api/produtos/3` | Produto válido atualizado | `200` |
+| 7 | DELETE | `/api/produtos/3` | — | `200` |
+| 8 | GET | `/rota-inexistente` | — | `404` em JSON |
