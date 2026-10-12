@@ -1,3 +1,4 @@
+import "dotenv/config";
 import express from "express";
 
 const app = express();
@@ -5,6 +6,55 @@ const PORTA = process.env.PORT || 3000;
 
 app.use(express.json());
 
+// Middleware global: registra cada requisição no terminal.
+function registrarLog(requisicao, resposta, proximo) {
+  console.log(
+    `[${new Date().toLocaleTimeString()}] ${requisicao.method} ${requisicao.url}`
+  );
+
+  proximo();
+}
+
+app.use(registrarLog);
+
+// Middleware reutilizável: valida os dados necessários para cadastrar/editar um produto.
+function validarProduto(requisicao, resposta, proximo) {
+  const { nome, preco, vendedor, especie } = requisicao.body;
+
+  if (typeof nome !== "string" || nome.trim() === "") {
+    return resposta.status(400).json({
+      mensagem: "O nome do produto é obrigatório."
+    });
+  }
+
+  const precoValido =
+    (typeof preco === "number" || typeof preco === "string") &&
+    String(preco).trim() !== "" &&
+    Number.isFinite(Number(preco)) &&
+    Number(preco) > 0;
+
+  if (!precoValido) {
+    return resposta.status(400).json({
+      mensagem: "O preço deve ser um número maior que zero."
+    });
+  }
+
+  if (typeof vendedor !== "string" || vendedor.trim() === "") {
+    return resposta.status(400).json({
+      mensagem: "O vendedor é obrigatório."
+    });
+  }
+
+  if (typeof especie !== "string" || especie.trim() === "") {
+    return resposta.status(400).json({
+      mensagem: "A espécie é obrigatória."
+    });
+  }
+
+  return proximo();
+}
+
+// "Banco de dados" temporário em memória.
 const produtos = [
   {
     id: 1,
@@ -39,45 +89,28 @@ app.get("/api/produtos/:id", (requisicao, resposta) => {
   return resposta.status(200).json(produto);
 });
 
-app.post("/api/produtos", (requisicao, resposta) => {
-  const { nome, preco, vendedor, especie } = requisicao.body;
+app.post(
+  "/api/produtos",
+  validarProduto,
+  (requisicao, resposta) => {
+    const { nome, preco, vendedor, especie } = requisicao.body;
 
-  if (!nome || !preco || !vendedor || !especie) {
-    return resposta.status(400).json({
-      mensagem: "Os campos nome, preco, vendedor e especie são obrigatórios."
+    const novoProduto = {
+      id: produtos.length + 1,
+      nome: nome.trim(),
+      preco: Number(preco),
+      vendedor: vendedor.trim(),
+      especie: especie.trim()
+    };
+
+    produtos.push(novoProduto);
+
+    return resposta.status(201).json({
+      mensagem: "Produto cadastrado com sucesso.",
+      produto: novoProduto
     });
   }
-
-  if (
-    typeof nome !== "string" ||
-    typeof vendedor !== "string" ||
-    typeof especie !== "string" ||
-    nome.trim() === "" ||
-    vendedor.trim() === "" ||
-    especie.trim() === "" ||
-    !Number.isFinite(Number(preco)) ||
-    Number(preco) <= 0
-  ) {
-    return resposta.status(400).json({
-      mensagem: "Preencha os campos corretamente e informe um preco maior que zero."
-    });
-  }
-
-  const novoProduto = {
-    id: produtos.length + 1,
-    nome: nome.trim(),
-    preco: Number(preco),
-    vendedor: vendedor.trim(),
-    especie: especie.trim()
-  };
-
-  produtos.push(novoProduto);
-
-  return resposta.status(201).json({
-    mensagem: "Produto cadastrado com sucesso.",
-    produto: novoProduto
-  });
-});
+);
 
 app.listen(PORTA, () => {
   console.log(`Servidor QUÉX rodando em http://localhost:${PORTA}`);
