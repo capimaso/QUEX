@@ -49,6 +49,98 @@ function obterIdValido(requisicao, resposta) {
   return id;
 }
 
+function validarProduto(requisicao, resposta, proximo) {
+  const {
+    vendedor_id,
+    nome,
+    descricao,
+    especie,
+    preco,
+    estoque,
+    ativo
+  } = requisicao.body;
+
+  const vendedorId = Number(vendedor_id);
+  const precoNumerico = Number(preco);
+  const estoqueNumerico = Number(estoque);
+
+  if (!Number.isInteger(vendedorId) || vendedorId <= 0) {
+    return resposta.status(400).json({
+      mensagem: "O vendedor_id deve ser um número inteiro positivo."
+    });
+  }
+
+  if (typeof nome !== "string" || nome.trim() === "") {
+    return resposta.status(400).json({
+      mensagem: "O nome do produto é obrigatório."
+    });
+  }
+
+  if (typeof especie !== "string" || especie.trim() === "") {
+    return resposta.status(400).json({
+      mensagem: "A espécie do produto é obrigatória."
+    });
+  }
+
+  if (!Number.isFinite(precoNumerico) || precoNumerico <= 0) {
+    return resposta.status(400).json({
+      mensagem: "O preço deve ser um número maior que zero."
+    });
+  }
+
+  if (!Number.isInteger(estoqueNumerico) || estoqueNumerico < 0) {
+    return resposta.status(400).json({
+      mensagem: "O estoque deve ser um número inteiro maior ou igual a zero."
+    });
+  }
+
+  if (
+    descricao !== undefined &&
+    descricao !== null &&
+    typeof descricao !== "string"
+  ) {
+    return resposta.status(400).json({
+      mensagem: "A descrição deve ser um texto."
+    });
+  }
+
+  if (ativo !== undefined && typeof ativo !== "boolean") {
+    return resposta.status(400).json({
+      mensagem: "O campo ativo deve ser verdadeiro ou falso."
+    });
+  }
+
+  requisicao.produtoValidado = {
+    vendedor_id: vendedorId,
+    nome: nome.trim(),
+    descricao:
+      typeof descricao === "string" && descricao.trim() !== ""
+        ? descricao.trim()
+        : null,
+    especie: especie.trim(),
+    preco: precoNumerico,
+    estoque: estoqueNumerico,
+    ativo: ativo === undefined ? true : ativo
+  };
+
+  return proximo();
+}
+
+function responderErroDoBanco(erro, resposta) {
+  console.error("Erro no banco:", erro.message);
+
+  if (erro.code === "23503") {
+    return resposta.status(400).json({
+      mensagem:
+        "Não foi possível concluir a operação: o vendedor informado não existe ou o produto possui registros relacionados."
+    });
+  }
+
+  return resposta.status(500).json({
+    mensagem: "Erro interno ao acessar o banco de dados."
+  });
+}
+
 app.get("/api/produtos", async (requisicao, resposta) => {
   try {
     const resultado = await pool.query(
@@ -57,11 +149,7 @@ app.get("/api/produtos", async (requisicao, resposta) => {
 
     return resposta.status(200).json(resultado.rows);
   } catch (erro) {
-    console.error("Erro ao listar produtos:", erro.message);
-
-    return resposta.status(500).json({
-      mensagem: "Erro interno ao buscar os produtos."
-    });
+    return responderErroDoBanco(erro, resposta);
   }
 });
 
@@ -86,12 +174,143 @@ app.get("/api/produtos/:id", async (requisicao, resposta) => {
 
     return resposta.status(200).json(resultado.rows[0]);
   } catch (erro) {
-    console.error("Erro ao buscar produto:", erro.message);
+    return responderErroDoBanco(erro, resposta);
+  }
+});
 
-    return resposta.status(500).json({
-      mensagem: "Erro interno ao buscar o produto."
+app.post(
+  "/api/produtos",
+  validarProduto,
+  async (requisicao, resposta) => {
+    const produto = requisicao.produtoValidado;
+
+    try {
+      const resultado = await pool.query(
+        `
+          INSERT INTO produto (
+            vendedor_id,
+            nome,
+            descricao,
+            especie,
+            preco,
+            estoque,
+            ativo
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
+          RETURNING *
+        `,
+        [
+          produto.vendedor_id,
+          produto.nome,
+          produto.descricao,
+          produto.especie,
+          produto.preco,
+          produto.estoque,
+          produto.ativo
+        ]
+      );
+
+      return resposta.status(201).json({
+        mensagem: "Produto cadastrado com sucesso.",
+        produto: resultado.rows[0]
+      });
+    } catch (erro) {
+      return responderErroDoBanco(erro, resposta);
+    }
+  }
+);
+
+app.put(
+  "/api/produtos/:id",
+  validarProduto,
+  async (requisicao, resposta) => {
+    const id = obterIdValido(requisicao, resposta);
+
+    if (id === null) {
+      return;
+    }
+
+    const produto = requisicao.produtoValidado;
+
+    try {
+      const resultado = await pool.query(
+        `
+          UPDATE produto
+          SET
+            vendedor_id = $1,
+            nome = $2,
+            descricao = $3,
+            especie = $4,
+            preco = $5,
+            estoque = $6,
+            ativo = $7
+          WHERE id = $8
+          RETURNING *
+        `,
+        [
+          produto.vendedor_id,
+          produto.nome,
+          produto.descricao,
+          produto.especie,
+          produto.preco,
+          produto.estoque,
+          produto.ativo,
+          id
+        ]
+      );
+
+      if (resultado.rows.length === 0) {
+        return resposta.status(404).json({
+          mensagem: "Produto não encontrado."
+        });
+      }
+
+      return resposta.status(200).json({
+        mensagem: "Produto atualizado com sucesso.",
+        produto: resultado.rows[0]
+      });
+    } catch (erro) {
+      return responderErroDoBanco(erro, resposta);
+    }
+  }
+);
+
+app.delete("/api/produtos/:id", async (requisicao, resposta) => {
+  const id = obterIdValido(requisicao, resposta);
+
+  if (id === null) {
+    return;
+  }
+
+  try {
+    const resultado = await pool.query(
+      "DELETE FROM produto WHERE id = $1 RETURNING *",
+      [id]
+    );
+
+    if (resultado.rows.length === 0) {
+      return resposta.status(404).json({
+        mensagem: "Produto não encontrado."
+      });
+    }
+
+    return resposta.status(200).json({
+      mensagem: "Produto removido com sucesso.",
+      produto: resultado.rows[0]
+    });
+  } catch (erro) {
+    return responderErroDoBanco(erro, resposta);
+  }
+});
+
+app.use((erro, requisicao, resposta, proximo) => {
+  if (erro instanceof SyntaxError && "body" in erro) {
+    return resposta.status(400).json({
+      mensagem: "O JSON enviado é inválido."
     });
   }
+
+  return proximo(erro);
 });
 
 app.use((requisicao, resposta) => {
