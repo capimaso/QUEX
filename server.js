@@ -1,12 +1,12 @@
 import "dotenv/config";
 import express from "express";
+import pool from "./db.js";
 
 const app = express();
 const PORTA = process.env.PORT || 3000;
 
 app.use(express.json());
 
-// Middleware global: registra cada requisição no terminal.
 function registrarLog(requisicao, resposta, proximo) {
   console.log(
     `[${new Date().toLocaleTimeString()}] ${requisicao.method} ${requisicao.url}`
@@ -17,153 +17,83 @@ function registrarLog(requisicao, resposta, proximo) {
 
 app.use(registrarLog);
 
-// Middleware reutilizável: valida os dados necessários para cadastrar/editar um produto.
-function validarProduto(requisicao, resposta, proximo) {
-  const { nome, preco, vendedor, especie } = requisicao.body;
+const consultaProdutos = `
+  SELECT
+    p.id,
+    p.vendedor_id,
+    p.nome,
+    p.descricao,
+    p.especie,
+    p.preco,
+    p.estoque,
+    p.ativo,
+    p.criado_em,
+    u.nome AS vendedor,
+    v.nome_loja
+  FROM produto AS p
+  JOIN vendedor AS v ON v.id = p.vendedor_id
+  JOIN usuario AS u ON u.id = v.id
+`;
 
-  if (typeof nome !== "string" || nome.trim() === "") {
-    return resposta.status(400).json({
-      mensagem: "O nome do produto é obrigatório."
+function obterIdValido(requisicao, resposta) {
+  const id = Number(requisicao.params.id);
+
+  if (!Number.isInteger(id) || id <= 0) {
+    resposta.status(400).json({
+      mensagem: "O id deve ser um número inteiro positivo."
     });
+
+    return null;
   }
 
-  const precoValido =
-    (typeof preco === "number" || typeof preco === "string") &&
-    String(preco).trim() !== "" &&
-    Number.isFinite(Number(preco)) &&
-    Number(preco) > 0;
-
-  if (!precoValido) {
-    return resposta.status(400).json({
-      mensagem: "O preço deve ser um número maior que zero."
-    });
-  }
-
-  if (typeof vendedor !== "string" || vendedor.trim() === "") {
-    return resposta.status(400).json({
-      mensagem: "O vendedor é obrigatório."
-    });
-  }
-
-  if (typeof especie !== "string" || especie.trim() === "") {
-    return resposta.status(400).json({
-      mensagem: "A espécie é obrigatória."
-    });
-  }
-
-  return proximo();
+  return id;
 }
 
-// "Banco de dados" temporário em memória.
-const produtos = [
-  {
-    id: 1,
-    nome: "Tilápia fresca",
-    preco: 28.9,
-    vendedor: "Pesqueiro Mar Azul",
-    especie: "Tilápia"
-  },
-  {
-    id: 2,
-    nome: "Robalo inteiro",
-    preco: 54.5,
-    vendedor: "Pescador João da Costa",
-    especie: "Robalo"
-  }
-];
+app.get("/api/produtos", async (requisicao, resposta) => {
+  try {
+    const resultado = await pool.query(
+      `${consultaProdutos} ORDER BY p.id`
+    );
 
-app.get("/api/produtos", (requisicao, resposta) => {
-  return resposta.status(200).json(produtos);
-});
+    return resposta.status(200).json(resultado.rows);
+  } catch (erro) {
+    console.error("Erro ao listar produtos:", erro.message);
 
-app.get("/api/produtos/:id", (requisicao, resposta) => {
-  const id = Number(requisicao.params.id);
-  const produto = produtos.find((item) => item.id === id);
-
-  if (!produto) {
-    return resposta.status(404).json({
-      mensagem: "Produto não encontrado."
+    return resposta.status(500).json({
+      mensagem: "Erro interno ao buscar os produtos."
     });
   }
-
-  return resposta.status(200).json(produto);
 });
 
-app.post(
-  "/api/produtos",
-  validarProduto,
-  (requisicao, resposta) => {
-    const { nome, preco, vendedor, especie } = requisicao.body;
+app.get("/api/produtos/:id", async (requisicao, resposta) => {
+  const id = obterIdValido(requisicao, resposta);
 
-    const novoProduto = {
-      id: produtos.length + 1,
-      nome: nome.trim(),
-      preco: Number(preco),
-      vendedor: vendedor.trim(),
-      especie: especie.trim()
-    };
-
-    produtos.push(novoProduto);
-
-    return resposta.status(201).json({
-      mensagem: "Produto cadastrado com sucesso.",
-      produto: novoProduto
-    });
+  if (id === null) {
+    return;
   }
-);
 
-app.put(
-  "/api/produtos/:id",
-  validarProduto,
-  (requisicao, resposta) => {
-    const id = Number(requisicao.params.id);
-    const produto = produtos.find((item) => item.id === id);
+  try {
+    const resultado = await pool.query(
+      `${consultaProdutos} WHERE p.id = $1`,
+      [id]
+    );
 
-    if (!produto) {
+    if (resultado.rows.length === 0) {
       return resposta.status(404).json({
         mensagem: "Produto não encontrado."
       });
     }
 
-    const { nome, preco, vendedor, especie } = requisicao.body;
+    return resposta.status(200).json(resultado.rows[0]);
+  } catch (erro) {
+    console.error("Erro ao buscar produto:", erro.message);
 
-    produto.nome = nome.trim();
-    produto.preco = Number(preco);
-    produto.vendedor = vendedor.trim();
-    produto.especie = especie.trim();
-
-    return resposta.status(200).json({
-      mensagem: "Produto atualizado com sucesso.",
-      produto
+    return resposta.status(500).json({
+      mensagem: "Erro interno ao buscar o produto."
     });
   }
-);
-
-app.delete("/api/produtos/:id", (requisicao, resposta) => {
-  const id = Number(requisicao.params.id);
-
-  const indiceProduto = produtos.findIndex(
-    (item) => item.id === id
-  );
-
-  if (indiceProduto === -1) {
-    return resposta.status(404).json({
-      mensagem: "Produto não encontrado."
-    });
-  }
-
-  const [produtoRemovido] = produtos.splice(
-    indiceProduto,
-    1
-  );
-
-  return resposta.status(200).json({
-    mensagem: "Produto removido com sucesso.",
-    produto: produtoRemovido
-  });
 });
 
-// Este middleware deve ficar depois de todas as rotas.
 app.use((requisicao, resposta) => {
   return resposta.status(404).json({
     mensagem: "Rota não encontrada."
@@ -173,4 +103,3 @@ app.use((requisicao, resposta) => {
 app.listen(PORTA, () => {
   console.log(`Servidor QUÉX rodando em http://localhost:${PORTA}`);
 });
-
