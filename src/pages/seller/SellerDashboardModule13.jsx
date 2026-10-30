@@ -50,6 +50,39 @@ const money = value =>
     currency: 'BRL',
   })
 
+const normalizePaymentStatus = status => {
+  const value = String(status ?? '').trim().toLowerCase()
+
+  if (['pending', 'pendente'].includes(value)) return 'pending'
+
+  if (
+    [
+      'validated',
+      'validado',
+      'validada',
+      'aprovado',
+      'aprovada',
+      'pago',
+    ].includes(value)
+  ) {
+    return 'validated'
+  }
+
+  if (
+    [
+      'rejected',
+      'rejeitado',
+      'rejeitada',
+      'recusado',
+      'recusada',
+    ].includes(value)
+  ) {
+    return 'rejected'
+  }
+
+  return value
+}
+
 function ShippingConfirmModal({
   open,
   tracking,
@@ -374,6 +407,7 @@ export default function SellerDashboardModule13() {
 
   const [products, setProducts] = useState([])
   const [orders, setOrders] = useState([])
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState('all')
   const [chats, setChats] = useState([])
   const [loading, setLoading] = useState(true)
   const [warnings, setWarnings] = useState([])
@@ -396,6 +430,26 @@ export default function SellerDashboardModule13() {
         sum + Number(order?.seller_financial?.net_value || 0),
       0
     )
+
+  const openOrders = orders.filter(order => {
+  const statuses = [order?.status, order?.seller_status]
+    .map(status => String(status || '').trim().toLowerCase())
+
+  return !statuses.some(status =>
+    ['entregue', 'cancelado'].includes(status)
+  )
+})
+
+const visibleOrders =
+  paymentStatusFilter === 'all'
+    ? openOrders
+    : openOrders.filter(order =>
+        normalizePaymentStatus(
+          order?.payment?.status ??
+          order?.payment_status ??
+          order?.status_pagamento
+        ) === paymentStatusFilter
+      )
 
   useEffect(() => {
     if (location.pathname === '/seller/products') {
@@ -495,7 +549,7 @@ export default function SellerDashboardModule13() {
 
       if (active) {
         setWarnings([
-          'Alguns dados da loja não puderam ser carregados. Tente atualizar a página.',
+          'Alguns dados do painel não puderam ser carregados. Tente atualizar a página.',
         ])
         setLoading(false)
       }
@@ -782,12 +836,48 @@ export default function SellerDashboardModule13() {
           </div>
         ) : (
           <div className="space-y-4">
-            {orders.length === 0 ? (
-              <div className="py-16 text-center text-gray-400">
-                Nenhum pedido recebido.
+            <div className="flex flex-col gap-3 rounded-2xl border border-gray-100 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+              <label
+                htmlFor="seller-payment-status-filter"
+                className="text-sm font-semibold text-[#0D1273]"
+              >
+                Filtrar por situação do pagamento
+              </label>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  id="seller-payment-status-filter"
+                  value={paymentStatusFilter}
+                  onChange={event =>
+                    setPaymentStatusFilter(event.target.value)
+                  }
+                  className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-[#5A5FBF] focus:outline-none focus:ring-2 focus:ring-[#5A5FBF]/20"
+                >
+                  <option value="all">Todas as situações</option>
+                  <option value="pending">PENDING (Pendente)</option>
+                  <option value="validated">VALIDATED (Aprovado)</option>
+                  <option value="rejected">REJECTED (Rejeitado)</option>
+                </select>
+
+                {paymentStatusFilter !== 'all' && (
+                  <button
+                    type="button"
+                    onClick={() => setPaymentStatusFilter('all')}
+                    className="rounded-xl px-3 py-2 text-sm font-medium text-[#0D1273] hover:bg-[#5A5FBF]/10"
+                  >
+                    Remover filtro
+                  </button>
+                )}
               </div>
-            ) : (
-              orders.map(order => (
+            </div>
+
+            {visibleOrders.length === 0 ? (
+              <div className="py-16 text-center text-gray-400">
+                {paymentStatusFilter === 'all'
+                  ? 'Nenhum pedido aberto.'
+                  : 'Nenhum pedido aberto corresponde à situação de pagamento selecionada.'}
+              </div>
+            ) : (              visibleOrders.map(order => (
                 <button
                   key={order.id}
                   type="button"
