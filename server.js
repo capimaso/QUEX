@@ -1,6 +1,7 @@
 import "dotenv/config";
 import express from "express";
 import pool from "./db.js";
+import validarProduto from "./middlewares/validarProduto.js";
 
 const app = express();
 const PORTA = process.env.PORT || 3000;
@@ -47,83 +48,6 @@ function obterIdValido(requisicao, resposta) {
   }
 
   return id;
-}
-
-function validarProduto(requisicao, resposta, proximo) {
-  const {
-    vendedor_id,
-    nome,
-    descricao,
-    especie,
-    preco,
-    estoque,
-    ativo
-  } = requisicao.body;
-
-  const vendedorId = Number(vendedor_id);
-  const precoNumerico = Number(preco);
-  const estoqueNumerico = Number(estoque);
-
-  if (!Number.isInteger(vendedorId) || vendedorId <= 0) {
-    return resposta.status(400).json({
-      mensagem: "O vendedor_id deve ser um número inteiro positivo."
-    });
-  }
-
-  if (typeof nome !== "string" || nome.trim() === "") {
-    return resposta.status(400).json({
-      mensagem: "O nome do produto é obrigatório."
-    });
-  }
-
-  if (typeof especie !== "string" || especie.trim() === "") {
-    return resposta.status(400).json({
-      mensagem: "A espécie do produto é obrigatória."
-    });
-  }
-
-  if (!Number.isFinite(precoNumerico) || precoNumerico <= 0) {
-    return resposta.status(400).json({
-      mensagem: "O preço deve ser um número maior que zero."
-    });
-  }
-
-  if (!Number.isInteger(estoqueNumerico) || estoqueNumerico < 0) {
-    return resposta.status(400).json({
-      mensagem: "O estoque deve ser um número inteiro maior ou igual a zero."
-    });
-  }
-
-  if (
-    descricao !== undefined &&
-    descricao !== null &&
-    typeof descricao !== "string"
-  ) {
-    return resposta.status(400).json({
-      mensagem: "A descrição deve ser um texto."
-    });
-  }
-
-  if (ativo !== undefined && typeof ativo !== "boolean") {
-    return resposta.status(400).json({
-      mensagem: "O campo ativo deve ser verdadeiro ou falso."
-    });
-  }
-
-  requisicao.produtoValidado = {
-    vendedor_id: vendedorId,
-    nome: nome.trim(),
-    descricao:
-      typeof descricao === "string" && descricao.trim() !== ""
-        ? descricao.trim()
-        : null,
-    especie: especie.trim(),
-    preco: precoNumerico,
-    estoque: estoqueNumerico,
-    ativo: ativo === undefined ? true : ativo
-  };
-
-  return proximo();
 }
 
 function responderErroDoBanco(erro, resposta) {
