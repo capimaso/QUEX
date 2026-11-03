@@ -2,6 +2,7 @@ import "dotenv/config";
 import express from "express";
 import pool from "./db.js";
 import validarProduto from "./middlewares/validarProduto.js";
+import bcrypt from "bcrypt";
 
 const app = express();
 const PORTA = process.env.PORT || 3000;
@@ -237,11 +238,66 @@ app.use((erro, requisicao, resposta, proximo) => {
   return proximo(erro);
 });
 
+app.post("/registro", async (requisicao, resposta) => {
+  const { nome, email, senha, telefone, endereco, data_nasc, tipo } =
+    requisicao.body ?? {};
+
+  if (
+    !nome ||
+    !email ||
+    !senha ||
+    !telefone ||
+    !endereco ||
+    !data_nasc ||
+    !["COMPRADOR", "VENDEDOR"].includes(tipo)
+  ) {
+    return resposta.status(400).json({
+      mensagem: "Informe todos os campos e um tipo válido."
+    });
+  }
+
+  try {
+    const senhaHash = await bcrypt.hash(senha, 10);
+
+    const resultado = await pool.query(
+      `
+        INSERT INTO usuario (
+          nome,
+          email,
+          senha_hash,
+          telefone,
+          endereco,
+          data_nasc,
+          tipo
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        RETURNING id, nome, email, telefone, endereco, data_nasc, tipo
+      `,
+      [nome, email, senhaHash, telefone, endereco, data_nasc, tipo]
+    );
+
+    return resposta.status(201).json({
+      mensagem: "Usuário cadastrado com sucesso.",
+      usuario: resultado.rows[0]
+    });
+  } catch (erro) {
+    if (erro.code === "23505") {
+      return resposta.status(400).json({
+        mensagem: "Já existe um usuário cadastrado com esse e-mail."
+      });
+    }
+
+    return responderErroDoBanco(erro, resposta);
+  }
+});
+
+
 app.use((requisicao, resposta) => {
   return resposta.status(404).json({
     mensagem: "Rota não encontrada."
   });
 });
+
 
 app.listen(PORTA, () => {
   console.log(`Servidor QUÉX rodando em http://localhost:${PORTA}`);
