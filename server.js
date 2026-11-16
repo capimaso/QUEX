@@ -3,16 +3,19 @@ import express from 'express'
 import cors from 'cors'
 import pool from './database/pool.js'
 import bcrypt from 'bcrypt'
+import jwt from 'jsonwebtoken'
 import produtoRouter from './routers/produtoRouter.js'
 
 const app = express()
 const PORT = process.env.PORT || 3000
 
-app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-}))
+app.use(
+  cors({
+    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  })
+)
 
 app.use(express.json())
 
@@ -61,6 +64,7 @@ app.post('/registro', async (req, res) => {
 
   try {
     const senhaHash = await bcrypt.hash(senha, 10)
+    const emailNormalizado = email.trim().toLowerCase()
 
     const resultado = await pool.query(
       `
@@ -76,7 +80,7 @@ app.post('/registro', async (req, res) => {
         VALUES ($1, $2, $3, $4, $5, $6, $7)
         RETURNING id, nome, email, telefone, endereco, data_nasc, tipo
       `,
-      [nome, email, senhaHash, telefone, endereco, data_nasc, tipo]
+      [nome, emailNormalizado, senhaHash, telefone, endereco, data_nasc, tipo]
     )
 
     return res.status(201).json({
@@ -90,6 +94,67 @@ app.post('/registro', async (req, res) => {
       })
     }
 
+    return responderErroDoBanco(erro, res)
+  }
+})
+
+app.post('/login', async (req, res) => {
+  const { email, senha } = req.body ?? {}
+
+  if (
+    typeof email !== 'string' ||
+    typeof senha !== 'string' ||
+    !email.trim() ||
+    !senha
+  ) {
+    return res.status(400).json({
+      mensagem: 'Informe o e-mail e a senha.',
+    })
+  }
+
+  if (!process.env.JWT_SECRET) {
+    return res.status(500).json({
+      mensagem: 'JWT_SECRET não está configurado.',
+    })
+  }
+
+  try {
+    const emailNormalizado = email.trim().toLowerCase()
+
+    const resultado = await pool.query(
+      `
+        SELECT id, nome, email, senha_hash, tipo
+        FROM usuario
+        WHERE LOWER(email) = $1
+      `,
+      [emailNormalizado]
+    )
+
+    const usuario = resultado.rows[0]
+
+    if (!usuario || !(await bcrypt.compare(senha, usuario.senha_hash))) {
+      return res.status(401).json({
+        mensagem: 'E-mail ou senha inválidos.',
+      })
+    }
+
+    const token = jwt.sign(
+      { id: usuario.id, tipo: usuario.tipo },
+      process.env.JWT_SECRET,
+      { expiresIn: '1d' }
+    )
+
+    return res.status(200).json({
+      mensagem: 'Login realizado com sucesso.',
+      token,
+      usuario: {
+        id: usuario.id,
+        nome: usuario.nome,
+        email: usuario.email,
+        tipo: usuario.tipo,
+      },
+    })
+  } catch (erro) {
     return responderErroDoBanco(erro, res)
   }
 })
