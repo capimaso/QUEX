@@ -14,9 +14,18 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.2",
+<<<<<<< HEAD
     "axios": "^1.21.1",
     "dotenv": "^18.0.7",
+=======
+    "bcrypt": "^6.0.0",
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.10",
+>>>>>>> cb50096dc20405af38d787e438ef5cdcda9d3416
     "express": "^4.21.2",
+    "joi": "^18.3.1",
+    "jsonwebtoken": "^9.0.3",
     "lucide-react": "^0.475.0",
     "pg": "^8.23.1",
     "react": "^18.2.0",
@@ -34,5 +43,9 @@
     "tailwindcss": "^3.4.17",
     "typescript": "^5.8.2",
     "vite": "^6.1.0"
+  },
+  "allowScripts": {
+    "bcrypt@6.0.0": true,
+    "esbuild@0.25.12": true
   }
 }
