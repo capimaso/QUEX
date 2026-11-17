@@ -2,7 +2,6 @@ import React, { useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { LogIn, Mail, Loader2, AlertTriangle } from 'lucide-react'
 import AuthLayout from '@/components/AuthLayout'
-import GoogleButton, { OrDivider } from '@/components/GoogleButton'
 import PasswordInput from '@/components/PasswordInput'
 import { Button, Input, Label } from '@/components/ui'
 import { useAuth } from '@/lib/AuthContext'
@@ -79,9 +78,6 @@ export default function Login() {
           )}
         </div>
       )}
-
-      <GoogleButton onError={setError} />
-      <OrDivider />
 
       <form onSubmit={submit} className="space-y-4">
         <div className="space-y-2">

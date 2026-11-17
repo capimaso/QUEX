@@ -18,7 +18,10 @@ const EMPTY = { user: null, needsProfile: false, auth: null }
 function storedUser() {
   try {
     const raw = localStorage.getItem(AUTH_USER_KEY)
-    return raw ? JSON.parse(raw) : null
+    const user = raw ? JSON.parse(raw) : null
+    return user && typeof user === 'object' && user.id
+      ? user
+      : null
   } catch {
     localStorage.removeItem(AUTH_USER_KEY)
     return null
@@ -37,9 +40,9 @@ function normalizeUser(user) {
     name: user.name || user.nome || '',
     role,
     has_buyer_profile:
-      user.has_buyer_profile || role === 'buyer',
+      user.has_buyer_profile ?? role === 'buyer',
     has_seller_profile:
-      user.has_seller_profile || role === 'seller',
+      user.has_seller_profile ?? role === 'seller',
   }
 }
 
@@ -193,18 +196,6 @@ export function AuthProvider({ children }) {
     })
   }
 
-  const loginWithGoogle = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: callbackUrl(),
-        queryParams: { prompt: 'select_account' },
-      },
-    })
-
-    if (error) throw erroAuth(error)
-  }
-
   const completeProfile = async payload => {
     const data = await apiRequest('/api/auth/complete-profile', {
       method: 'POST',
@@ -263,7 +254,6 @@ export function AuthProvider({ children }) {
       capabilities,
       login,
       register,
-      loginWithGoogle,
       completeProfile,
       resendConfirmation,
       logout,

@@ -69,6 +69,7 @@ const produtoSchema = Joi.object({
 
   ativo: Joi.boolean()
     .optional()
+    .default(true)
     .messages({
       "boolean.base": "O campo ativo deve ser verdadeiro ou falso."
     })

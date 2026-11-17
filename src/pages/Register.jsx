@@ -18,7 +18,6 @@ import AuthLayout from '@/components/AuthLayout'
 import AddressFields from '@/components/AddressFields'
 import CpfClaimModal from '@/components/CpfClaimModal'
 import DeliverySetupFields from '@/components/DeliverySetupFields'
-import GoogleButton, { OrDivider } from '@/components/GoogleButton'
 import PasswordInput from '@/components/PasswordInput'
 import VerifiedDocumentField from '@/components/VerifiedDocumentField'
 import {
@@ -531,12 +530,6 @@ export default function Register() {
           </Button>
         </form>
 
-        <OrDivider />
-
-        <GoogleButton
-          label="Cadastrar com Google"
-          onError={setError}
-        />
       </AuthLayout>
 
       <CpfClaimModal

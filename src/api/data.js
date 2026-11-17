@@ -30,11 +30,20 @@ function fromRenderProduct(product) {
 }
 
 function toRenderProduct(form, user) {
+  if (!user?.id) {
+    throw new Error('Sessão expirada. Entre de novo.')
+  }
+
+  const species = form.species || String(form.species_id || '')
+  if (!species.trim()) {
+    throw new Error('Informe a espécie do produto.')
+  }
+
   return {
     vendedor_id: Number(user?.id),
     nome: form.name,
     descricao: form.description || '',
-    especie: form.species || String(form.species_id || ''),
+    especie: species,
     preco: Number(form.price),
     estoque: Number(form.quantity),
     ativo: Boolean(form.active),

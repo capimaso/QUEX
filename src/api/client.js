@@ -10,9 +10,15 @@ const apiClient = axios.create({
 })
 
 apiClient.interceptors.request.use(config => {
+  const path = String(config.url || '')
+  const method = String(config.method || 'get').toLowerCase()
+  const privateRenderRequest =
+    path === '/api/auth/me' ||
+    (path.startsWith('/api/produtos') &&
+      !['get', 'head', 'options'].includes(method))
   const token = localStorage.getItem(AUTH_TOKEN_KEY)
 
-  if (token) {
+  if (token && privateRenderRequest) {
     config.headers.Authorization = `Bearer ${token}`
   }
 
@@ -21,7 +27,7 @@ apiClient.interceptors.request.use(config => {
 
 export async function apiRequest(path, options = {}) {
   const useRenderApi =
-    path.startsWith('/api/auth/') ||
+    ['/api/auth/login', '/api/auth/register', '/api/auth/me'].includes(path) ||
     path.startsWith('/api/produtos')
 
   try {
