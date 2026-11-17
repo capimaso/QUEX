@@ -44,9 +44,20 @@ function responderErroDoBanco(erro, res) {
   })
 }
 
-app.post('/registro', async (req, res) => {
-  const { nome, email, senha, telefone, endereco, data_nasc, tipo } =
-    req.body ?? {}
+async function registrarUsuario(req, res) {
+  const {
+    nome,
+    email,
+    senha,
+    telefone,
+    endereco,
+    data_nasc,
+    tipo,
+    cpf,
+    cpf_cnpj,
+    nome_loja,
+    entrega_disponivel = false,
+  } = req.body ?? {}
 
   if (
     !nome ||
@@ -55,6 +66,8 @@ app.post('/registro', async (req, res) => {
     !telefone ||
     !endereco ||
     !data_nasc ||
+    (req.path === '/api/auth/register' &&
+      (tipo === 'VENDEDOR' ? !cpf_cnpj : !cpf)) ||
     !['COMPRADOR', 'VENDEDOR'].includes(tipo)
   ) {
     return res.status(400).json({
@@ -66,25 +79,62 @@ app.post('/registro', async (req, res) => {
     const senhaHash = await bcrypt.hash(senha, 10)
     const emailNormalizado = email.trim().toLowerCase()
 
-    const resultado = await pool.query(
-      `
-        INSERT INTO usuario (
-          nome,
-          email,
-          senha_hash,
-          telefone,
-          endereco,
-          data_nasc,
-          tipo
+    const client = await pool.connect()
+    let resultado
+
+    try {
+      await client.query('BEGIN')
+      resultado = await client.query(
+        `
+          INSERT INTO usuario (
+            nome,
+            email,
+            senha_hash,
+            telefone,
+            endereco,
+            data_nasc,
+            tipo
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
+          RETURNING id, nome, email, telefone, endereco, data_nasc, tipo
+        `,
+        [nome, emailNormalizado, senhaHash, telefone, endereco, data_nasc, tipo]
+      )
+
+      const userId = resultado.rows[0].id
+      if (tipo === 'VENDEDOR' && cpf_cnpj) {
+        await client.query(
+          `
+            INSERT INTO vendedor (
+              id, cpf_cnpj, nome_loja, entrega_disponivel
+            )
+            VALUES ($1, $2, $3, $4)
+          `,
+          [
+            userId,
+            cpf_cnpj,
+            nome_loja || nome,
+            Boolean(entrega_disponivel),
+          ]
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
-        RETURNING id, nome, email, telefone, endereco, data_nasc, tipo
-      `,
-      [nome, emailNormalizado, senhaHash, telefone, endereco, data_nasc, tipo]
-    )
+      } else if (tipo === 'COMPRADOR' && cpf) {
+        await client.query(
+          'INSERT INTO comprador (id, cpf) VALUES ($1, $2)',
+          [userId, cpf]
+        )
+      }
+
+      await client.query('COMMIT')
+    } catch (erro) {
+      await client.query('ROLLBACK')
+      throw erro
+    } finally {
+      client.release()
+    }
 
     return res.status(201).json({
       mensagem: 'Usuário cadastrado com sucesso.',
+      user: resultado.rows[0],
       usuario: resultado.rows[0],
     })
   } catch (erro) {
@@ -96,11 +146,14 @@ app.post('/registro', async (req, res) => {
 
     return responderErroDoBanco(erro, res)
   }
-})
+}
 
-app.post('/login', async (req, res) => {
-  const { email, senha } = req.body ?? {}
+app.post('/registro', registrarUsuario)
+app.post('/api/auth/register', registrarUsuario)
 
+async function autenticarUsuario(req, res) {
+  const { email } = req.body ?? {}
+  const senha = req.body?.password ?? req.body?.senha
   if (
     typeof email !== 'string' ||
     typeof senha !== 'string' ||
@@ -147,6 +200,13 @@ app.post('/login', async (req, res) => {
     return res.status(200).json({
       mensagem: 'Login realizado com sucesso.',
       token,
+      user: {
+        id: usuario.id,
+        nome: usuario.nome,
+        name: usuario.nome,
+        email: usuario.email,
+        tipo: usuario.tipo,
+      },
       usuario: {
         id: usuario.id,
         nome: usuario.nome,
@@ -155,6 +215,54 @@ app.post('/login', async (req, res) => {
       },
     })
   } catch (erro) {
+    return responderErroDoBanco(erro, res)
+  }
+}
+
+app.post('/login', autenticarUsuario)
+app.post('/api/auth/login', autenticarUsuario)
+
+app.get('/api/auth/me', async (req, res) => {
+  const authorization = req.headers.authorization || ''
+  const [, token] = authorization.match(/^Bearer\s+(.+)$/i) || []
+
+  if (!token || !process.env.JWT_SECRET) {
+    return res.status(401).json({
+      mensagem: 'Token de autenticação inválido ou ausente.',
+    })
+  }
+
+  try {
+    const payload = jwt.verify(token, process.env.JWT_SECRET)
+    const resultado = await pool.query(
+      `
+        SELECT id, nome, email, telefone, endereco, data_nasc, tipo
+        FROM usuario
+        WHERE id = $1
+      `,
+      [payload.id]
+    )
+    const usuario = resultado.rows[0]
+
+    if (!usuario) {
+      return res.status(401).json({
+        mensagem: 'Usuário não encontrado.',
+      })
+    }
+
+    return res.status(200).json({
+      user: {
+        ...usuario,
+        name: usuario.nome,
+      },
+    })
+  } catch (erro) {
+    if (erro.name === 'JsonWebTokenError' || erro.name === 'TokenExpiredError') {
+      return res.status(401).json({
+        mensagem: 'Token inválido ou expirado.',
+      })
+    }
+
     return responderErroDoBanco(erro, res)
   }
 })

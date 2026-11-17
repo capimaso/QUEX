@@ -1,0 +1,140 @@
+{
+  "info": {
+    "_postman_id": "467cbb20-5f94-4f63-89ea-b2c498142748",
+    "name": "QUÉX API",
+    "description": "Autenticação e operações de produto da API QUÉX.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:3000" },
+    { "key": "email", "value": "ana@example.com" },
+    { "key": "password", "value": "senha-segura" },
+    { "key": "token", "value": "" },
+    { "key": "product_id", "value": "1" }
+  ],
+  "item": [
+    {
+      "name": "Autenticação",
+      "item": [
+        {
+          "name": "Cadastro comprador",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Ana Costa\",\n  \"email\": \"{{email}}\",\n  \"senha\": \"{{password}}\",\n  \"telefone\": \"48999990000\",\n  \"endereco\": \"Rua do Porto, 10 - Florianópolis/SC\",\n  \"data_nasc\": \"1998-05-12\",\n  \"tipo\": \"COMPRADOR\",\n  \"cpf\": \"12345678901\"\n}"
+            },
+            "url": "{{base_url}}/api/auth/register"
+          }
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "if (data.token) pm.collectionVariables.set('token', data.token);",
+                  "if (data.user) pm.collectionVariables.set('user', JSON.stringify(data.user));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "url": "{{base_url}}/api/auth/login"
+          }
+        },
+        {
+          "name": "Usuário autenticado",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/auth/me"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Produtos",
+      "item": [
+        {
+          "name": "Listar produtos",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/produtos"
+          }
+        },
+        {
+          "name": "Buscar produto",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/produtos/{{product_id}}"
+          }
+        },
+        {
+          "name": "Criar produto (vendedor autenticado)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "if (data.produto?.id) pm.collectionVariables.set('product_id', data.produto.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Tilápia fresca\",\n  \"descricao\": \"Pescado resfriado.\",\n  \"especie\": \"Tilápia\",\n  \"preco\": 28.9,\n  \"estoque\": 12,\n  \"ativo\": true\n}"
+            },
+            "url": "{{base_url}}/api/produtos"
+          }
+        },
+        {
+          "name": "Atualizar produto (vendedor autenticado)",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Tilápia fresca - atualizada\",\n  \"descricao\": \"Pescado resfriado.\",\n  \"especie\": \"Tilápia\",\n  \"preco\": 29.5,\n  \"estoque\": 10,\n  \"ativo\": true\n}"
+            },
+            "url": "{{base_url}}/api/produtos/{{product_id}}"
+          }
+        },
+        {
+          "name": "Remover produto (vendedor autenticado)",
+          "request": {
+            "method": "DELETE",
+            "url": "{{base_url}}/api/produtos/{{product_id}}"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -58,7 +58,7 @@ export default function Login() {
       {!configured && (
         <div className="mb-4 flex gap-2 rounded-xl bg-amber-50 p-3 text-sm text-amber-700">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-          Configure as variáveis do Supabase e verifique o deploy.
+          Configure a variável VITE_API_URL com a URL da API Render.
         </div>
       )}
 

@@ -77,6 +77,20 @@ export async function atualizarProduto(req, res) {
   if (id === null) return
 
   try {
+    const existente = await ProdutoModel.buscarProdutoPorId(id)
+
+    if (!existente) {
+      return res.status(404).json({
+        mensagem: 'Produto não encontrado.',
+      })
+    }
+
+    if (Number(existente.vendedor_id) !== Number(req.user.id)) {
+      return res.status(403).json({
+        mensagem: 'Você não pode alterar este produto.',
+      })
+    }
+
     const produto = await ProdutoModel.atualizarProduto(
       id,
       req.produtoValidado
@@ -102,6 +116,20 @@ export async function excluirProduto(req, res) {
   if (id === null) return
 
   try {
+    const existente = await ProdutoModel.buscarProdutoPorId(id)
+
+    if (!existente) {
+      return res.status(404).json({
+        mensagem: 'Produto não encontrado.',
+      })
+    }
+
+    if (Number(existente.vendedor_id) !== Number(req.user.id)) {
+      return res.status(403).json({
+        mensagem: 'Você não pode remover este produto.',
+      })
+    }
+
     const produto = await ProdutoModel.excluirProduto(id)
 
     if (!produto) {

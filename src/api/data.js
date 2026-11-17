@@ -8,138 +8,99 @@ import {
 export const fallbackImage =
   'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=900&h=680&fit=crop'
 
+function fromRenderProduct(product) {
+  return {
+    ...product,
+    name: product.name || product.nome,
+    description: product.description || product.descricao || '',
+    species: product.species || product.especie || '',
+    price: Number(product.price ?? product.preco),
+    quantity: Number(product.quantity ?? product.estoque),
+    active: product.active ?? product.ativo ?? true,
+    seller_name:
+      product.seller_name ||
+      product.vendedor ||
+      product.nome_loja ||
+      '',
+    image_url: product.image_url || fallbackImage,
+    has_bones: Boolean(product.has_bones),
+    water_type: product.water_type || 'doce',
+    unit: product.unit || 'kg',
+  }
+}
+
+function toRenderProduct(form, user) {
+  return {
+    vendedor_id: Number(user?.id),
+    nome: form.name,
+    descricao: form.description || '',
+    especie: form.species || String(form.species_id || ''),
+    preco: Number(form.price),
+    estoque: Number(form.quantity),
+    ativo: Boolean(form.active),
+  }
+}
+
 export async function listProducts({
   activeOnly = true,
   search = '',
   sellerId,
-  nearMe = false,
+  nearMe: _nearMe = false,
 } = {}) {
-  const params =
-    new URLSearchParams()
-
-  if (sellerId) {
-    params.set(
-      'seller_id',
-      String(sellerId)
+  const data = await apiRequest('/api/produtos')
+  const products = (Array.isArray(data) ? data : data.products || [])
+    .map(fromRenderProduct)
+    .filter(product => activeOnly ? product.active : true)
+    .filter(product =>
+      sellerId ? String(product.vendedor_id) === String(sellerId) : true
     )
-  }
+    .filter(product => {
+      const query = search.trim().toLocaleLowerCase('pt-BR')
+      return query
+        ? `${product.name} ${product.species} ${product.seller_name}`
+            .toLocaleLowerCase('pt-BR')
+            .includes(query)
+        : true
+    })
 
-  if (!activeOnly) {
-    params.set(
-      'active',
-      'false'
-    )
-  }
-
-  if (search.trim()) {
-    params.set(
-      'search',
-      search.trim()
-    )
-  }
-
-  if (nearMe) {
-    params.set(
-      'near_me',
-      'true'
-    )
-  }
-
-  const query =
-    params.toString()
-
-  const data =
-    await apiRequest(
-      `/api/products${
-        query ? `?${query}` : ''
-      }`
-    )
-
-  return data.products || []
+  return products
 }
 
 export async function getProduct(
   id,
   includeInactive = false
 ) {
-  const suffix =
-    includeInactive
-      ? '&active=false'
-      : ''
+  const product = await apiRequest(
+    `/api/produtos/${encodeURIComponent(id)}`
+  )
 
-  const data =
-    await apiRequest(
-      `/api/products?id=${encodeURIComponent(id)}${suffix}`
-    )
-
-  return data.product || null
+  if (!includeInactive && !product.ativo) return null
+  return fromRenderProduct(product)
 }
 
 export async function saveProduct(
   form,
-  _user,
+  user,
   id = 'new'
 ) {
-  const payload = {
-    name: form.name,
-    species_id:
-      Number(form.species_id),
-    description:
-      form.description,
-    price: Number(form.price),
-    quantity:
-      Number(form.quantity),
-    unit: form.unit,
-    active:
-      Boolean(form.active),
-    photos: form.photos || [],
-    has_bones:
-      Boolean(form.has_bones),
-    water_type:
-      form.water_type,
-    promotion_enabled:
-      Boolean(
-        form.promotion_enabled
-      ),
-    promotional_price:
-      form.promotion_enabled
-        ? Number(
-            form.promotional_price
-          )
-        : null,
-    promotion_expires_at:
-      form.promotion_enabled
-        ? form.promotion_expires_at
-        : null,
-  }
+  const payload = toRenderProduct(form, user)
 
   if (id === 'new') {
-    return (
-      await apiRequest(
-        '/api/products',
-        {
-          method: 'POST',
-          body:
-            JSON.stringify(
-              payload
-            ),
-        }
-      )
-    ).product
+    const data = await apiRequest('/api/produtos', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+    return fromRenderProduct(data.product)
   }
 
-  return (
-    await apiRequest(
-      `/api/products?id=${encodeURIComponent(id)}`,
-      {
-        method: 'PATCH',
-        body:
-          JSON.stringify(
-            payload
-          ),
-      }
-    )
-  ).product
+  const data = await apiRequest(
+    `/api/produtos/${encodeURIComponent(id)}`,
+    {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }
+  )
+  return fromRenderProduct(data.product)
 }
 
 export async function listSpecies() {
@@ -248,7 +209,7 @@ export async function removeUploadedPhotos(
 
 export async function removeProduct(id) {
   return apiRequest(
-    `/api/products?id=${encodeURIComponent(id)}`,
+    `/api/produtos/${encodeURIComponent(id)}`,
     { method: 'DELETE' }
   )
 }
@@ -257,17 +218,23 @@ export async function toggleProduct(
   id,
   active
 ) {
-  return (
-    await apiRequest(
-      `/api/products?id=${encodeURIComponent(id)}`,
-      {
-        method: 'PATCH',
-        body: JSON.stringify({
-          active,
-        }),
-      }
-    )
-  ).product
+  const product = await getProduct(id, true)
+  const data = await apiRequest(
+    `/api/produtos/${encodeURIComponent(id)}`,
+    {
+      method: 'PUT',
+      body: JSON.stringify({
+        vendedor_id: Number(product.vendedor_id),
+        nome: product.name,
+        descricao: product.description || '',
+        especie: product.species,
+        preco: Number(product.price),
+        estoque: Number(product.quantity),
+        ativo: Boolean(active),
+      }),
+    }
+  )
+  return fromRenderProduct(data.product)
 }
 
 export async function listCart() {

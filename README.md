@@ -1,192 +1,113 @@
 # QUÉX — Marketplace de Pescados
 
-O **QUÉX** é um marketplace online que conecta pescadores e vendedores de pescados diretamente a compradores. Nesta etapa do projeto integrador, iniciamos uma API em Node.js e Express para disponibilizar produtos do marketplace por meio de endpoints HTTP.
+O QUÉX conecta vendedores de pescados a compradores. O repositório contém a aplicação React/Vite e uma API Node.js/Express que usa PostgreSQL.
 
-## Integrantes
+## Executar localmente
 
-- Larissa Siegel
-- Laura Mello
-- Samuel Santos
+1. Instale Node.js e PostgreSQL e crie o banco usando [`database/quex_entrega.sql`](./database/quex_entrega.sql).
+2. Crie `.env` na raiz:
 
-## Tecnologias utilizadas
+   ```env
+   DATABASE_URL=postgresql://usuario:senha@localhost:5432/quex
+   JWT_SECRET=uma-chave-secreta-longa
+   PORT=3000
+   FRONTEND_URL=http://localhost:5173
+   ```
 
-- **Node.js:** ambiente que executa JavaScript no servidor.
-- **NPM:** gerenciador de pacotes do Node.js.
-- **Express:** biblioteca utilizada para criar as rotas da API.
-- **React e Vite:** tecnologias já utilizadas no front-end do QUÉX.
+3. Instale as dependências e inicie a API:
 
-## Estrutura da entrega de back-end
+   ```bash
+   npm install
+   npm start
+   ```
 
-```text
-QUEX/
-├── api/                 # Funções serverless já existentes no projeto
-├── server.js            # Servidor Express desta entrega
-├── package.json         # Dependências e scripts do projeto
-└── README.md            # Documentação do projeto e da API
+4. Em outro terminal, crie `.env.local` na raiz do front-end:
+
+   ```env
+   VITE_API_URL=http://localhost:3000
+   ```
+
+5. Inicie o front-end com `npm run dev:front` e abra a URL indicada pelo Vite.
+
+No deploy, defina `DATABASE_URL`, `JWT_SECRET`, `FRONTEND_URL` e `VITE_API_URL` nos serviços correspondentes. `VITE_API_URL` deve ser a URL pública da API Render, sem barra final. Reinicie o build do front-end depois de alterar variáveis `VITE_`.
+
+## Autenticação
+
+Todas as respostas usam JSON. O token JWT expira em 24 horas.
+
+### `POST /api/auth/register`
+
+Campos obrigatórios para comprador: `nome`, `email`, `senha`, `telefone`, `endereco`, `data_nasc`, `tipo` (`COMPRADOR`) e `cpf`.
+
+Para vendedor, use `tipo: "VENDEDOR"`, `cpf_cnpj` e, opcionalmente, `nome_loja` e `entrega_disponivel`. A API cria o perfil de comprador ou vendedor junto com o usuário.
+
+```json
+{
+  "nome": "Ana Costa",
+  "email": "ana@example.com",
+  "senha": "senha-segura",
+  "telefone": "48999990000",
+  "endereco": "Rua do Porto, 10 - Centro - Florianópolis/SC",
+  "data_nasc": "1998-05-12",
+  "tipo": "COMPRADOR",
+  "cpf": "12345678901"
+}
 ```
 
-## Como executar a API
+Sucesso: `201 Created`, com `user` e `usuario`. E-mail duplicado ou dados inválidos retornam `400`.
 
-### 1. Instale as dependências
+### `POST /api/auth/login`
 
-No terminal, dentro da pasta principal do repositório, execute:
+Campos obrigatórios: `email` e `password`.
 
-```bash
-npm install
+```json
+{
+  "email": "ana@example.com",
+  "password": "senha-segura"
+}
 ```
 
-Esse comando lê o arquivo `package.json` e instala as dependências do projeto, incluindo o Express.
+Sucesso: `200 OK`, com `token` e `user`. Credenciais inválidas retornam `401`.
 
-### 2. Inicie o servidor
+### `GET /api/auth/me`
 
-```bash
-npm start
-```
+Requer `Authorization: Bearer <token>`. Retorna o usuário autenticado. Token ausente, inválido ou expirado retorna `401`.
 
-Se tudo estiver correto, o terminal exibirá:
+## Produtos
 
-```text
-Servidor QUÉX rodando em http://localhost:3000
-```
+`GET /api/produtos` lista produtos e `GET /api/produtos/:id` busca um produto. Essas consultas são públicas.
 
-Para encerrar o servidor, pressione `Ctrl + C` no terminal.
+Criar, atualizar e remover produtos exigem token de vendedor (`Authorization: Bearer <token>`). O `vendedor_id` é obtido do token; o servidor não aceita alterar produtos de outro vendedor.
 
-## Endpoints da API
-
-| VERBO | ENDPOINT | AÇÃO EXECUTADA |
+| Método | Caminho | Campos do corpo |
 | --- | --- | --- |
-| GET | `/api/produtos` | Retorna todos os produtos. |
-| GET | `/api/produtos/:id` | Retorna um produto pelo ID. |
-| POST | `/api/produtos` | Cadastra um novo produto. |
-| PUT | `/api/produtos/:id` | Atualiza um produto existente. |
-| DELETE | `/api/produtos/:id` | Remove um produto existente. |
+| `POST` | `/api/produtos` | `nome`, `especie`, `preco`, `estoque`; `descricao` e `ativo` são opcionais |
+| `PUT` | `/api/produtos/:id` | `nome`, `especie`, `preco`, `estoque`; `descricao` e `ativo` são opcionais |
+| `DELETE` | `/api/produtos/:id` | — |
 
-### GET `/api/produtos`
-
-Retorna todos os produtos cadastrados na API em formato JSON.
-
-**URL completa para teste local:**
-
-```text
-http://localhost:3000/api/produtos
-```
-
-**Status code retornado:**
-
-| Status | Significado |
-| --- | --- |
-| `200 OK` | A lista de produtos foi retornada com sucesso. |
-
-**Exemplo de resposta:**
-
-```json
-[
-  {
-    "id": 1,
-    "nome": "Tilápia fresca",
-    "preco": 28.9,
-    "vendedor": "Pesqueiro Mar Azul",
-    "especie": "Tilápia"
-  },
-  {
-    "id": 2,
-    "nome": "Robalo inteiro",
-    "preco": 54.5,
-    "vendedor": "Pescador João da Costa",
-    "especie": "Robalo"
-  }
-]
-```
-
-### GET `/api/produtos/:id`
-
-Busca apenas um produto pelo seu identificador.
-
-**Exemplo:**
-
-```text
-http://localhost:3000/api/produtos/1
-```
-
-| Status | Significado |
-| --- | --- |
-| `200 OK` | O produto foi encontrado e retornado em JSON. |
-| `404 Not Found` | Não existe produto com o id informado. |
-
-### POST `/api/produtos`
-
-Cadastra um novo pescado. A requisição deve ser enviada com o cabeçalho `Content-Type: application/json`.
-
-**URL:**
-
-```text
-http://localhost:3000/api/produtos
-```
-
-**Corpo da requisição:**
+Exemplo de criação:
 
 ```json
 {
-  "nome": "Salmão em posta",
-  "preco": 69.9,
-  "vendedor": "Peixaria do Porto",
-  "especie": "Salmão"
+  "nome": "Tilápia fresca",
+  "descricao": "Pescado resfriado.",
+  "especie": "Tilápia",
+  "preco": 28.9,
+  "estoque": 12,
+  "ativo": true
 }
 ```
 
-| Status | Significado |
-| --- | --- |
-| `201 Created` | O produto foi cadastrado com sucesso. |
-| `400 Bad Request` | Algum campo obrigatório está ausente ou possui valor inválido. |
+Sucesso retorna o produto em `produto` (`201` para criação, `200` para atualização e remoção). IDs inválidos retornam `400`; produtos ausentes, `404`; tentativas sem permissão, `401` ou `403`.
 
-**Exemplo de resposta de sucesso:**
+## Postman
 
-```json
-{
-  "mensagem": "Produto cadastrado com sucesso.",
-  "produto": {
-    "id": 3,
-    "nome": "Salmão em posta",
-    "preco": 69.9,
-    "vendedor": "Peixaria do Porto",
-    "especie": "Salmão"
-  }
-}
-```
+Importe [`postman/QUÉX API.postman_collection.json`](./postman/QUÉX%20API.postman_collection.json). Defina a variável de coleção `base_url` para a URL local ou Render. A coleção inclui cadastro, login, `/api/auth/me` e operações de produto; o login guarda o token para as chamadas protegidas.
 
-## Como testar
+## Scripts
 
-Para testar o `GET`, deixe o servidor em execução e abra no navegador:
-
-```text
-http://localhost:3000/api/produtos
-```
-
-Para testar o `POST`, use o Postman:
-
-1. Selecione o método `POST`.
-2. Informe a URL `http://localhost:3000/api/produtos`.
-3. Em **Body**, selecione **raw** e depois **JSON**.
-4. Cole o exemplo de JSON desta documentação.
-5. Clique em **Send** e confira o status `201 Created`.
-
-## Observação
-
-Nesta primeira versão, os produtos ficam armazenados apenas em memória. Portanto, os produtos cadastrados por `POST` deixam de existir quando o servidor é reiniciado. A integração com banco de dados será uma evolução futura do back-end.
-
-## Versionamento
-
-O projeto é versionado no GitHub. Cada integrante realizou commits com a própria conta para registrar sua participação no desenvolvimento do QUÉX.
-
-## Testes da API v2
-
-| # | Método | URL | Body | Resultado esperado |
-| --- | --- | --- | --- | --- |
-| 1 | GET | `/api/produtos` | — | `200` e lista de produtos |
-| 2 | GET | `/api/produtos/1` | — | `200` e produto encontrado |
-| 3 | GET | `/api/produtos/999` | — | `404` |
-| 4 | POST | `/api/produtos` | Produto válido | `201` |
-| 5 | POST | `/api/produtos` | `{}` | `400` |
-| 6 | PUT | `/api/produtos/3` | Produto válido atualizado | `200` |
-| 7 | DELETE | `/api/produtos/3` | — | `200` |
-| 8 | GET | `/rota-inexistente` | — | `404` em JSON |
+- `npm start`: inicia a API Express.
+- `npm run dev`: inicia a API com reinício automático.
+- `npm run dev:front`: inicia o front-end Vite.
+- `npm run build`: gera o build de produção do front-end.
+- `npm run check`: verifica a sintaxe dos principais arquivos React.
