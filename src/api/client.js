@@ -1,49 +1,59 @@
-import { supabase } from '@/lib/supabase'
+import axios from 'axios'
 
-async function accessToken() {
-  const { data } = await supabase.auth.getSession()
-  return data.session?.access_token || null
-}
+export const AUTH_TOKEN_KEY = 'quex_token'
+export const AUTH_USER_KEY = 'quex_user'
+export const RENDER_API_URL =
+  import.meta.env.VITE_API_URL?.replace(/\/+$/, '') || ''
+
+const apiClient = axios.create({
+  baseURL: RENDER_API_URL,
+})
+
+apiClient.interceptors.request.use(config => {
+  const path = String(config.url || '')
+  const method = String(config.method || 'get').toLowerCase()
+  const privateRenderRequest =
+    path === '/api/auth/me' ||
+    (path.startsWith('/api/produtos') &&
+      !['get', 'head', 'options'].includes(method))
+  const token = localStorage.getItem(AUTH_TOKEN_KEY)
+
+  if (token && privateRenderRequest) {
+    config.headers.Authorization = `Bearer ${token}`
+  }
+
+  return config
+})
 
 export async function apiRequest(path, options = {}) {
-  const headers = new Headers(options.headers || {})
-
-  if (options.body !== undefined && !headers.has('Content-Type')) {
-    headers.set('Content-Type', 'application/json')
-  }
-
-  const token = await accessToken()
-  if (token && !headers.has('Authorization')) {
-    headers.set('Authorization', `Bearer ${token}`)
-  }
-
-  const response = await fetch(path, {
-    ...options,
-    headers,
-  })
-
-  let data = null
-  const text = await response.text()
+  const useRenderApi =
+    ['/api/auth/login', '/api/auth/register', '/api/auth/me'].includes(path) ||
+    path.startsWith('/api/produtos')
 
   try {
-    data = text ? JSON.parse(text) : null
-  } catch {
-    data = { raw: text }
-  }
+    const response = await apiClient.request({
+      url: path,
+      method: options.method || 'GET',
+      data: options.body,
+      headers: options.headers,
+      baseURL: useRenderApi ? RENDER_API_URL : '',
+    })
 
-  if (!response.ok) {
+    return response.data
+  } catch (cause) {
+    const data = cause.response?.data
     const error = new Error(
       data?.error ||
-      data?.message ||
-      `Erro HTTP ${response.status}`
+        data?.message ||
+        data?.mensagem ||
+        cause.message ||
+        'Não foi possível conectar à API.'
     )
 
-    error.status = response.status
+    error.status = cause.response?.status
     error.code = data?.code || null
-    error.details = data
+    error.details = data || null
 
     throw error
   }
-
-  return data
 }

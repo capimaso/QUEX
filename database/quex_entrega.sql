@@ -4,7 +4,7 @@ CREATE TABLE usuario (
     id SERIAL PRIMARY KEY,
     nome VARCHAR(150) NOT NULL,
     email VARCHAR(255) NOT NULL UNIQUE,
-    senha VARCHAR(255) NOT NULL,
+    senha_hash VARCHAR(255) NOT NULL,
     telefone VARCHAR(20),
     endereco TEXT NOT NULL,
     data_nasc DATE NOT NULL,
@@ -144,13 +144,13 @@ COMMIT;
 
 BEGIN;
 
-INSERT INTO usuario (id, nome, email, senha, telefone, endereco, data_nasc, tipo) VALUES
-(1, 'Ana Costa', 'ana@exemplo.com', 'senha_ficticia_ana', '11999990001', 'Rua das Ondas, 100 - Santos/SP', DATE '2000-05-12', 'COMPRADOR'),
-(2, 'Bruno Lima', 'bruno@exemplo.com', 'senha_ficticia_bruno', '11999990002', 'Avenida do Mar, 200 - Guarujá/SP', DATE '1995-08-20', 'COMPRADOR'),
-(3, 'Carla Souza', 'carla@exemplo.com', 'senha_ficticia_carla', '11999990003', 'Rua do Porto, 300 - São Vicente/SP', DATE '1998-01-15', 'COMPRADOR'),
-(4, 'Diego Alves', 'diego@exemplo.com', 'senha_ficticia_diego', '11999990004', 'Rua dos Pescadores, 40 - Santos/SP', DATE '1989-04-10', 'VENDEDOR'),
-(5, 'Elisa Rocha', 'elisa@exemplo.com', 'senha_ficticia_elisa', '11999990005', 'Avenida da Praia, 500 - Guarujá/SP', DATE '1992-11-25', 'VENDEDOR'),
-(6, 'Felipe Moraes', 'felipe@exemplo.com', 'senha_ficticia_felipe', '11999990006', 'Rua da Marina, 90 - São Vicente/SP', DATE '1987-07-08', 'VENDEDOR');
+INSERT INTO usuario (id, nome, email, senha_hash, telefone, endereco, data_nasc, tipo) VALUES
+(1, 'Ana Costa', 'ana@exemplo.com', '$2b$10$IHHUFy63nvpuAf.NEigVSO3PNyjkI4PcFbOt2Worf8jna2NK6fLR2', '11999990001', 'Rua das Ondas, 100 - Santos/SP', DATE '2000-05-12', 'COMPRADOR'),
+(2, 'Bruno Lima', 'bruno@exemplo.com', '$2b$10$ScL0I7cf2CxEnpDQir9js.wQszMvv4ZL8bIglk9Vr5bmOmaXLyySu', '11999990002', 'Avenida do Mar, 200 - Guarujá/SP', DATE '1995-08-20', 'COMPRADOR'),
+(3, 'Carla Souza', 'carla@exemplo.com', '$2b$10$2i3kwfYYRwFcPO//.U4jCehJiX3vyRE3CtIrKK2YQrUW6hSZkgAhy', '11999990003', 'Rua do Porto, 300 - São Vicente/SP', DATE '1998-01-15', 'COMPRADOR'),
+(4, 'Diego Alves', 'diego@exemplo.com', '$2b$10$A69dDUq3XJIz9SUq3SQSluT5fWGal45jgP76.2PnTw/pmID8URuQ2', '11999990004', 'Rua dos Pescadores, 40 - Santos/SP', DATE '1989-04-10', 'VENDEDOR'),
+(5, 'Elisa Rocha', 'elisa@exemplo.com', '$2b$10$DbxSN5j4oDYRU1oxmLtlTuU/WtEv1Q/vHurlDy3eLoYpZEgxDgQ1.', '11999990005', 'Avenida da Praia, 500 - Guarujá/SP', DATE '1992-11-25', 'VENDEDOR'),
+(6, 'Felipe Moraes', 'felipe@exemplo.com', '$2b$10$3eRfktnn7ECTaO72HRxwauNBmniXbnKuXukqimAOgKbiMDTPbQXY2', '11999990006', 'Rua da Marina, 90 - São Vicente/SP', DATE '1987-07-08', 'VENDEDOR');
 
 INSERT INTO comprador (id, cpf) VALUES
 (1, '12345678901'),

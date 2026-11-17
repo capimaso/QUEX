@@ -341,6 +341,12 @@ export default function ProductForm() {
       await saveProduct(
         {
           ...form,
+          species:
+            species.find(
+              item =>
+                String(item.id) ===
+                String(form.species_id)
+            )?.name || legacySpecies,
           promotion_expires_at:
             form.promotion_enabled
               ? new Date(
